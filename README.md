@@ -14,9 +14,15 @@ Experiment626 setup
     1.  install home-brew https://brew.sh here 
     2.  there are some follow up steps that print to terminal that you actually have to run for brew to work! 
     3.  install node - and then test that node -v and npm -v commands work 
-    4.  set up Claude 
+    4.  set up Colyseus- inside the project - 
+        npm create colyseus-app@latest ./my-server
+        (I forgot that i had done this before) 
+    4a.    also, npm install colyseus.js
+        I am not sure if i should have done "create" or "install" above.. but i ran "create" for colyseus and install for the javascript/client side... 
     5.  set up free version of github co-pilot
     6.  do this colyseus examples install : https://github.com/colyseus/colyseus-examples by runnign the git command etc. 
+    7. it looks to me like we should use something like the static.html pages to generate a test harness for seeing if our messages get through, and have the right data. And then, later, report the new state back so we can see if the state is evolving properly.
+    
 
 
 
