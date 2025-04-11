@@ -9,7 +9,7 @@ Experiment626 setup
     3.  install node - and then test that node -v and npm -v commands work 
     4.  set up Claude 
     5.  set up free version of github co-pilot
-    
+    6.  do this colyseus examples install : https://github.com/colyseus/colyseus-examples by runnign the git command etc. 
 
 
 
