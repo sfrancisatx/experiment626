@@ -1,6 +1,13 @@
 # experiment626
 galactic conquest game
 
+Setting up tools: 
+    1. set up Xcode or VSCode
+    2. set up a GitHub account
+    3. Add to github experiment626 repository
+    4. install github desktop (free)
+    5. do the sample github make branch, check in , push to main process. 
+    
 
 Experiment626 setup
 
