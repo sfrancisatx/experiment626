@@ -7,6 +7,8 @@ Setting up tools:
     3. Add to github experiment626 repository
     4. install github desktop (free)
     5. do the sample github make branch, check in , push to main process. 
+    6. install VSCode
+    7. integrate with github/ github co-pilot
     
 
 Experiment626 setup
@@ -19,6 +21,7 @@ Experiment626 setup
         (I forgot that i had done this before) 
     4a.    also, npm install colyseus.js
         I am not sure if i should have done "create" or "install" above.. but i ran "create" for colyseus and install for the javascript/client side... 
+        Anyway, i did this... and then i used .gitignore to hopefully ignore the installed files that are not really part of our source, and should be managed by NPM dependencies
     5.  set up free version of github co-pilot
     6.  do this colyseus examples install : https://github.com/colyseus/colyseus-examples by runnign the git command etc. 
     7. it looks to me like we should use something like the static.html pages to generate a test harness for seeing if our messages get through, and have the right data. And then, later, report the new state back so we can see if the state is evolving properly.
@@ -37,5 +40,24 @@ Key ideas:
     •    The communications are synchronous (TCP) rather than UCP / unguaranteed.  So we should have reliable comms. But : our game should work without full information. A missed packet etc should be easy enough. Server has all the history anyway.  
     •    server owns “state”. Clients can submit “requests” to change state - like “launch fleet” for example.
     •    It doesn’t seem like we’d need any linear prediction, though possibly you could optimize the number of update a client asks for by having it know “how long until the next interesting event will happen” but it isn’t clear that that kind of optimization is important. 
-    •    
+    •    In our terminology, let's think about what Rooms are:
+        * room type: Lobby - see what games you are participating in, join a new game, "quit" a game, etc. 
+            - extra points if we implement a list of historical games that we can replay for you !
+        * room type: Galaxy - this is basically a running instance of the game
+            Properties:
+            - number of stars (or parameters for generating them)
+            - any particular rules of the galaxy: 
+                * min/max players, 
+                * paid/free game, 
+                * units of time, game: time limit or unlimited?
+                * conditions of winning? 
+                * visibility rules, 
+                * production rules, 
+                * speed rules, 
+                * costing etc. 
+                * combat rules 
+                * alliances / etc. rules if any (there was none of this in the original)
+            - we'll want a chat room inside the galazy (i think)
+        * room type: Chat only - all your chats from all your galaxies? 
+
 
