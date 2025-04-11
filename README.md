@@ -22,7 +22,7 @@ Experiment626 setup
     5.  set up free version of github co-pilot
     6.  do this colyseus examples install : https://github.com/colyseus/colyseus-examples by runnign the git command etc. 
     7. it looks to me like we should use something like the static.html pages to generate a test harness for seeing if our messages get through, and have the right data. And then, later, report the new state back so we can see if the state is evolving properly.
-    8. well, now i've added all the colyseus stuff to the GIT repository so now it isn't clear that we need to run install... we'll find out on holland's machine'
+    8. well, now i've added all the colyseus stuff to the GIT repository so now it isn't clear that we need to run install... we'll find out on holland's machine. It feels like this should have been done just with package managedment so i have mixed feelings aobut what i just did. 
     
 
 
