@@ -16,6 +16,7 @@ Experiment626 setup
     1.  install home-brew https://brew.sh here 
     2.  there are some follow up steps that print to terminal that you actually have to run for brew to work! 
     3.  install node - and then test that node -v and npm -v commands work 
+    -   clone the experiment626 project
     4.  set up Colyseus- inside the project - 
         npm create colyseus-app@latest ./experitment626-server
         (I forgot that i had done this before) 
