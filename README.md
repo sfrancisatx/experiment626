@@ -4,10 +4,10 @@ galactic conquest game
 Setting up tools: 
     1. set up Xcode or VSCode   x
     2. set up a GitHub account  x
-    3. Add to github experiment626 repository  
-    4. install github desktop (free)
-    5. do the sample github make branch, check in , push to main process. 
-    6. install VSCode
+    3. Add to github experiment626 repository  x
+    4. install github desktop (free)  x
+    5. do the sample github make branch, check in , push to main process. x
+    6. install VSCode  x
     7. integrate with github/ github co-pilot
     
 
@@ -20,7 +20,7 @@ Experiment626 setup
     4.  set up Colyseus- inside the project - 
         npm create colyseus-app@latest ./experitment626-server
         (I forgot that i had done this before) 
-    4a.    also, npm install colyseus.js
+    4a.    also, npm install colyseus.js - maybe? something to come back to. 
         I am not sure if i should have done "create" or "install" above.. but i ran "create" for colyseus and install for the javascript/client side... 
         Anyway, i did this... and then i used .gitignore to hopefully ignore the installed files that are not really part of our source, and should be managed by NPM dependencies
     5.  set up free version of github co-pilot
