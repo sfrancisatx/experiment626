@@ -23,6 +23,7 @@ Experiment626 setup
     4a.    also, npm install colyseus.js - maybe? something to come back to. 
         I am not sure if i should have done "create" or "install" above.. but i ran "create" for colyseus and install for the javascript/client side... 
         Anyway, i did this... and then i used .gitignore to hopefully ignore the installed files that are not really part of our source, and should be managed by NPM dependencies
+    4b. might need to run npm install --save colyhseus.js from the experitment626-server directory. (SLF: i ran this locally and it adds some npm modules and such). reference: https://docs.colyseus.io/getting-started/typescript 
     5.  set up free version of github co-pilot
     6.  do this colyseus examples install : https://github.com/colyseus/colyseus-examples by runnign the git command etc. 
     7. it looks to me like we should use something like the static.html pages to generate a test harness for seeing if our messages get through, and have the right data. And then, later, report the new state back so we can see if the state is evolving properly.
