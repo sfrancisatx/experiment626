@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "my-app",
+  "name": "experiment626",
   "version": "1.0.0",
-  "description": "npm init template for bootstrapping an empty Colyseus project",
+  "description": "working on a galactic conquest game",
   "main": "build/index.js",
   "engines": {
     "node": ">= 20.9.0"
@@ -17,9 +17,9 @@
   "author": "",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/colyseus/create-colyseus/issues"
+    "url": "https://github.com/sfrancisatx/experiment626/issues"
   },
-  "homepage": "https://github.com/colyseus/create-colyseus#readme",
+  "homepage": "https://github.com/sfrancisatx/experiment626#readme",
   "devDependencies": {
     "@colyseus/loadtest": "^0.16.0",
     "@colyseus/testing": "^0.16.0",
