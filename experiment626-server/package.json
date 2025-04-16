@@ -14,7 +14,7 @@
     "clean": "rimraf build",
     "test": "mocha -r tsx test/**_test.ts --exit --timeout 15000"
   },
-  "author": "",
+  "author": "Holland Francis, Scott Francis",
   "license": "UNLICENSED",
   "bugs": {
     "url": "https://github.com/sfrancisatx/experiment626/issues"
