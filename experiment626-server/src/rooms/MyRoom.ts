@@ -6,6 +6,9 @@ export class MyRoom extends Room<MyRoomState> {
   state = new MyRoomState();
 
   onCreate (options: any) {
+    // just let us know that it was actually created
+    console.log("MyRoom created!", options);
+
     this.onMessage("type", (client, message) => {
       //
       // handle "type" message
