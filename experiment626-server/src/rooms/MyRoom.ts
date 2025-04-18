@@ -12,6 +12,7 @@ export class MyRoom extends Room<MyRoomState> {
     this.onMessage("type", (client, message) => {
       //
       // handle "type" message
+      console.log(message + "received from " + client.sessionId);
       //
     });
   }
