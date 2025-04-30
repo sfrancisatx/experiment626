@@ -8,11 +8,15 @@
  *
  * See: https://docs.colyseus.io/server/api/#constructor-options
  */
+import dotenv from 'dotenv';
 import { listen } from "@colyseus/tools";
+
+// Load environment variables based on NODE_ENV
+const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
+dotenv.config({ path: envFile });
 
 // Import Colyseus config
 import app from "./app.config";
 
-// Create and listen on 2567 (or PORT environment variable.)
-// Note: i've set the port to 5111 to be different from the samples provided.
+// Create and listen on 5111 (or PORT environment variable.)
 listen(app);
