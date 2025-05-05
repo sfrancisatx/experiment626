@@ -24,7 +24,10 @@ describe("Star", () => {
     it("should initialize default values", () => {
       expect(star.size).to.equal(1);
       expect(star.owner).to.equal("");
-      expect(star.resources).to.equal(0);
+      expect(star.wealth).to.equal(0);
+      expect(star.numShips).to.equal(0);
+      expect(star.isDead).to.be.false;
+      expect(star.empireID).to.equal("");
     });
   });
 
@@ -33,23 +36,50 @@ describe("Star", () => {
       star.generateAttributes();
       
       expect(star.size).to.be.at.least(1).and.at.most(5);
-      expect(star.resources).to.be.at.least(10).and.at.most(100);
+      expect(star.wealth).to.be.at.least(100).and.at.most(1000);
+      expect(star.numShips).to.be.at.least(1).and.at.most(10);
     });
 
     it("should generate different attributes on multiple calls", () => {
       const attrs1 = {
         size: star.size,
-        resources: star.resources
+        wealth: star.wealth,
+        numShips: star.numShips
       };
       
       star.generateAttributes();
       
       const attrs2 = {
         size: star.size,
-        resources: star.resources
+        wealth: star.wealth,
+        numShips: star.numShips
       };
       
       expect(attrs1).to.not.deep.equal(attrs2);
+    });
+  });
+
+  describe("generatePosition", () => {
+    it("should generate position within specified bounds", () => {
+      const minX = 100;
+      const maxX = 200;
+      const minY = 150;
+      const maxY = 250;
+      
+      star.generatePosition(minX, maxX, minY, maxY);
+      
+      expect(star.x).to.be.at.least(minX).and.at.most(maxX);
+      expect(star.y).to.be.at.least(minY).and.at.most(maxY);
+    });
+
+    it("should handle edge cases", () => {
+      star.generatePosition(0, 0, 0, 0);
+      expect(star.x).to.equal(0);
+      expect(star.y).to.equal(0);
+
+      star.generatePosition(100, 100, 200, 200);
+      expect(star.x).to.equal(100);
+      expect(star.y).to.equal(200);
     });
   });
 
@@ -63,6 +93,24 @@ describe("Star", () => {
     it("should allow clearing owner", () => {
       star.owner = "";
       expect(star.owner).to.equal("");
+    });
+
+    it("should allow setting empire ID", () => {
+      const empireId = "empire1";
+      star.empireID = empireId;
+      expect(star.empireID).to.equal(empireId);
+    });
+  });
+
+  describe("state management", () => {
+    it("should allow marking star as dead", () => {
+      star.isDead = true;
+      expect(star.isDead).to.be.true;
+    });
+
+    it("should allow updating number of ships", () => {
+      star.numShips = 5;
+      expect(star.numShips).to.equal(5);
     });
   });
 });

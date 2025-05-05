@@ -2,6 +2,7 @@ import { GalaxyRoomState } from "../src/rooms/schema/GalaxyRoomState";
 import { Star } from "../src/rooms/schema/Star";
 import { Empire } from "../src/rooms/schema/Empire";
 import { Player } from "../src/rooms/schema/Player";
+import { Fleet } from "../src/rooms/schema/Fleet";
 import { expect } from "chai";
 import { describe, it, beforeEach } from "mocha";
 import { Schema, MapSchema } from "@colyseus/schema";
@@ -53,27 +54,21 @@ describe("GalaxyRoomState", () => {
 
   describe("empires", () => {
     it("should allow adding empires", () => {
-      const empire = new Empire();
-      empire.name = "Test Empire";
-      empire.shipCount = 10;
+      const empire = new Empire("Test Empire", "#FF0000");
       state.empires.set(empire.name, empire);
       expect(state.empires.get(empire.name)).to.equal(empire);
     });
 
     it("should allow removing empires", () => {
-      const empire = new Empire();
-      empire.name = "Test Empire";
-      empire.shipCount = 10;
+      const empire = new Empire("Test Empire", "#FF0000");
       state.empires.set(empire.name, empire);
       state.empires.delete(empire.name);
       expect(state.empires.size).to.equal(0);
     });
 
     it("should allow getting empire count", () => {
-      const empire1 = new Empire();
-      empire1.name = "Empire1";
-      const empire2 = new Empire();
-      empire2.name = "Empire2";
+      const empire1 = new Empire("Empire1", "#FF0000");
+      const empire2 = new Empire("Empire2", "#00FF00");
       state.empires.set(empire1.name, empire1);
       state.empires.set(empire2.name, empire2);
       expect(state.empires.size).to.equal(2);
@@ -147,7 +142,7 @@ describe("GalaxyRoomState", () => {
       // Check that stars have valid attributes
       for (const [, star] of state.stars.entries()) {
         expect(star.size).to.be.a('number');
-        expect(star.resources).to.be.a('number');
+        expect(star.wealth).to.be.a('number');
       }
     });
 
@@ -161,16 +156,54 @@ describe("GalaxyRoomState", () => {
     });
   });
 
+  describe("fleets", () => {
+    it("should allow creating and managing fleets", () => {
+      const empire = new Empire("Test Empire", "#FF0000");
+      
+      const star1 = new Star("star1", 0, 0);
+      const star2 = new Star("star2", 100, 100);
+      
+      state.stars.set(star1.id, star1);
+      state.stars.set(star2.id, star2);
+      state.empires.set(empire.name, empire);
+      
+      // Create a fleet
+      const fleet = new Fleet(
+        "fleet_1",
+        empire.name,
+        10, // ships
+        1, // speed
+        100, // range
+        star1.id,
+        star2.id,
+        state
+      );
+      
+      // Add fleet to state
+      state.fleets.set(fleet.id, fleet);
+      
+      // Check fleet was added
+      expect(state.fleets.size).to.equal(1);
+      expect(state.fleets.get(fleet.id)).to.equal(fleet);
+      
+      // Update fleet position
+      fleet.updatePosition(0, 1);
+      expect(fleet.x).to.be.a('number');
+      expect(fleet.y).to.be.a('number');
+      
+      // Remove fleet
+      state.fleets.delete(fleet.id);
+      expect(state.fleets.size).to.equal(0);
+    });
+  });
+
   describe("serialization", () => {
     it("should serialize to JSON correctly", () => {
       const star = new Star("test-star", 0, 0);
-      const empire = new Empire();
-      empire.name = "Test Empire";
+      const empire = new Empire("Test Empire", "#FF0000");
       empire.shipCount = 10;
-      const player = new Player();
-      player.name = "Test Player";
+      const player = new Player("Test Player");
       player.score = 100;
-      player.name = "Test Player";
 
       state.stars.set(star.id, star);
       state.empires.set(empire.name, empire);
@@ -188,7 +221,10 @@ describe("GalaxyRoomState", () => {
         players: {
           [player.name]: player.toJSON()
         },
-        tick: state.tick
+        tick: state.tick,
+        timeCompression: state.timeCompression,
+        productionCadence: state.productionCadence,
+        fleets: state.fleets.toJSON()
       });
     });
   });
