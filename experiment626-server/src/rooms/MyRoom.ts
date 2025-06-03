@@ -1,5 +1,5 @@
 import { Room, Client } from "@colyseus/core";
-import { MyRoomState } from "./schema/MyRoomState";
+import { MyRoomState } from "./schema/GalaxyState";
 
 export class MyRoom extends Room<MyRoomState> {
   maxClients = 4;
