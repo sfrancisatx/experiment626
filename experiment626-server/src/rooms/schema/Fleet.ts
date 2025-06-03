@@ -15,7 +15,7 @@ export class Fleet extends Schema {
   @type("number") y: number;
   @type("number") eta: number; // Estimated time of arrival
   @type("boolean") isGarrisoned: boolean;
-  galaxyState: GalaxyRoomState;
+  @type("ref") galaxyState: any;
 
   constructor(id: string, owner: string, ships: number, speed: number, range: number, startingPoint: string, destination: string, galaxyState: GalaxyRoomState) {
     super();

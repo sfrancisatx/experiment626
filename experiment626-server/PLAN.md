@@ -70,7 +70,7 @@
   - `speed`: Speed of the fleet
   - `range`: Range of the fleet
   - `startingPoint`: Starting star ID
-  - `destination`: Destination star ID
+  - `endPoint`: Destination star ID
   - `x`: x position of the fleet
   - `y`: y position of the fleet
   - `eta`: Estimated time of arrival  
