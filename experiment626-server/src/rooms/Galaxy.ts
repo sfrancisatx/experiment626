@@ -2,16 +2,19 @@ import { GalaxyState } from "./schema/GalaxyState";
 import { Client, Room } from "@colyseus/core";
 import { Star } from "./Star";
 import { StarState } from "./schema/StarState";
-import { Player } from "./Player";
+import { FleetState } from "./schema/FleetState";
+import { Fleet } from "./Fleet";
 
 export class Galaxy extends Room<GalaxyState> {
-    constructor() {
-        super();
+    onCreate() {
         this.state = new GalaxyState();
+        //Must insantiate all player ids
+        //Must instantiate all stars
+        //
         this.onMessage("*", (client: Client, type: string | number, data: any) => {
             switch (type) {
-                case "createStar":
-                    this.state.starList.push(new Star(new StarState(), data.id, data.name, client.sessionId, data.x, data.y, data.wealthProduction, data.shipProduction, data.shipCount));
+                case "createFleet":
+                    this.state.fleetList.push(new Fleet(new FleetState(), data.id, data.owner, data.sourceStarId, data.destinationStarId, data.ships, this.state.clockTime, fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(data.sourceStarId, data.destinationStarId), data.owner)));
                     break;
                 case "renameStar":
                     this.state.starList.forEach((star: Star) => {
@@ -19,11 +22,28 @@ export class Galaxy extends Room<GalaxyState> {
                             star.setName(data.name);
                         }
                     });
-                case "":
+                    break;
+                case "removeStar":
+                    this.state.starList = this.state.starList.filter((star: Star) => {
+                        return star.getid() !== data.id;
+                    });
                     break;
                 default:
                     break;
             }
         });
+        this.setSimulationInterval((deltaTime: number) => {
+            this.state.clockTime += deltaTime;
+            this.state.fleetList.forEach((fleet: Fleet) => {
+                fleet.update(deltaTime);
+            });
+        });
     }
+    distanceBetweenStars(sourceStarId: string, destinationStarId: string): number {
+        //Implement
+    }
+}
+
+function fleetEndTimeCalculator(clockTime: number, distance: number, owner: string): number {
+    //Implement
 }

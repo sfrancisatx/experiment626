@@ -8,6 +8,7 @@ Stars
 - ShipCount
 - ShipProduction
 - WealthProduction
+- Where battles occur, when enemy fleets arrive
 Planets?
 
 
@@ -29,6 +30,7 @@ Fleet
 - Fleets Contain Ships
 - Fleets move, not Ships
 - Only exist when sending ships from A to B
+- Only can ever be attackers, can't be intercepted
 Ships
 - Stored in Stars or Fleets
 - Expand on Later
