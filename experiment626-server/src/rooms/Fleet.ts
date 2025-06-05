@@ -15,4 +15,25 @@ export class Fleet extends Room<FleetState> {
     update(deltaTime: number) {
         
     }
+    getid() {
+        return this.state.id;
+    }
+    getowner() {
+        return this.state.owner;
+    }
+    getsourceStarId() {
+        return this.state.sourceStarId;
+    }
+    getdestinationStarId() {
+        return this.state.destinationStarId;
+    }
+    getships() {
+        return this.state.ships;
+    }
+    getstartTime() {
+        return this.state.startTime;
+    }
+    getendTime() {
+        return this.state.endTime;
+    }
 }
