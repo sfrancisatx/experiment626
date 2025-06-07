@@ -54,11 +54,11 @@
     <div class="container">
         <h1>Galaxy Game</h1>
         <input type="text" id="message" placeholder="Enter message to send to server">
-        <button onclick="sendMessage()">Send Message</button>
+        <button id="send">Send Message</button>
         <div id="status"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/colyseus.js@latest"></script>
-    <script src="client.ts"></script>
+    <script src="dist/client.js" type="module"></script>
 </body>
 </html>

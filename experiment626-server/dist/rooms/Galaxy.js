@@ -16,6 +16,7 @@ class Galaxy extends core_1.Room {
         this.idCounter = 0;
     }
     onCreate(options) {
+        console.log("Galaxy room created with options:", options);
         this.state = new GalaxyState_1.GalaxyState();
         this.state.startingResearchPoints = options.startingResearchPoints;
         this.state.startingSpeed = options.startingSpeed;
@@ -27,10 +28,12 @@ class Galaxy extends core_1.Room {
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
+        console.log("Initial state:", this.state);
         //Must insantiate all player ids
         //Must instantiate all stars
         //
         this.onMessage("*", (client, type, data) => {
+            console.log(`[Galaxy] Received message from ${client.sessionId} of type ${type}:`, data);
             console.log(`Received message from ${client.sessionId}:`, data);
             this.broadcast("message", {
                 type: "received",
@@ -42,8 +45,9 @@ class Galaxy extends core_1.Room {
                     console.log("Fleet Created");
                     this.broadcast("message", {
                         type: "success",
-                        content: "Fleet created successfully"
+                        content: `Fleet created by ${client.sessionId}`
                     });
+                    console.log(`[Galaxy] Fleet created by ${client.sessionId}`);
                     break;
                 case "renameStar":
                     this.renameStar(data.id, data.name, client.sessionId);

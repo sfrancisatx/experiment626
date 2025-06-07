@@ -4,7 +4,7 @@
   "description": "Client for experiment626",
   "main": "client.js",
   "scripts": {
-    "start": "tsc && node client.js"
+    "serve": "python3 -m http.server 8000"
   },
   "dependencies": {
     "@colyseus/core": "^0.15.13",

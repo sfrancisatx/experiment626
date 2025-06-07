@@ -15,6 +15,7 @@ interface createOptions {
     startingWealth: number;
     startingStars: number;
     startingShips: number;
+    playerIdList: string[];
 }
 
 export class Galaxy extends Room<GalaxyState> {
@@ -23,21 +24,107 @@ export class Galaxy extends Room<GalaxyState> {
     empireList: Empire[] = [];
     idCounter: number = 0;
     onCreate(options: createOptions) {
+        console.log("Galaxy room created with options:", options);
+        
+        // Initialize state with default values
         this.state = new GalaxyState();
-        this.state.startingResearchPoints = options.startingResearchPoints;
-        this.state.startingSpeed = options.startingSpeed;
-        this.state.startingRange = options.startingRange;
-        this.state.startingBattlePower = options.startingBattlePower;
-        this.state.startingWealth = options.startingWealth;
-        this.state.startingStars = options.startingStars;
-        this.state.startingShips = options.startingShips;
-        if (options.vpId) {
-            this.state.vpId = options.vpId;
-        }
-        //Must insantiate all player ids
-        //Must instantiate all stars
-        //
+        this.state.startingResearchPoints = 100;
+        this.state.startingSpeed = 1;
+        this.state.startingRange = 100;
+        this.state.startingBattlePower = 10;
+        this.state.startingWealth = 1000;
+        this.state.startingStars = 10;
+        this.state.startingShips = 5;
+        this.state.playerIdList = [];
+        this.state.vpId = "";
+        
+        console.log("Initial state created with defaults");
+
+        // Handle initialization message
+        this.onMessage("initialize", (client: Client, options: createOptions) => {
+            console.log(`[Galaxy] Initializing room for ${client.sessionId} with options:`, options);
+            
+            // Update state with provided options
+            if (options.startingResearchPoints) this.state.startingResearchPoints = options.startingResearchPoints;
+            if (options.startingSpeed) this.state.startingSpeed = options.startingSpeed;
+            if (options.startingRange) this.state.startingRange = options.startingRange;
+            if (options.startingBattlePower) this.state.startingBattlePower = options.startingBattlePower;
+            if (options.startingWealth) this.state.startingWealth = options.startingWealth;
+            if (options.startingStars) this.state.startingStars = options.startingStars;
+            if (options.startingShips) this.state.startingShips = options.startingShips;
+            if (options.playerIdList) {
+                this.state.playerIdList = options.playerIdList;
+                console.log(`Updated playerIdList to:`, this.state.playerIdList);
+            }
+            if (options.vpId) this.state.vpId = options.vpId;
+            
+            // Create initial empire for the first player
+            if (this.state.playerIdList.length > 0) {
+                const playerId = this.state.playerIdList[0];
+                const empire = new EmpireState();
+                empire.id = playerId;
+                empire.name = `Empire ${playerId}`;
+                empire.ownerId = playerId;
+                empire.wealth = this.state.startingWealth;
+                empire.researchPoints = this.state.startingResearchPoints;
+                empire.speed = this.state.startingSpeed;
+                empire.range = this.state.startingRange;
+                empire.battlePower = this.state.startingBattlePower;
+                this.state.empireStateList.push(empire);
+                console.log(`Created initial empire for player ${playerId}`);
+            }
+            
+            console.log("State after initialization:", this.state);
+            this.broadcast("message", {
+                type: "initialized",
+                content: "Room initialized successfully"
+            });
+        });
+
+        // Handle initialization message
+        this.onMessage("initialize", (client: Client, options: createOptions) => {
+            console.log(`[Galaxy] Initializing room for ${client.sessionId} with options:`, options);
+            
+            // Initialize state with options
+            this.state.startingResearchPoints = options.startingResearchPoints;
+            this.state.startingSpeed = options.startingSpeed;
+            this.state.startingRange = options.startingRange;
+            this.state.startingBattlePower = options.startingBattlePower;
+            this.state.startingWealth = options.startingWealth;
+            this.state.startingStars = options.startingStars;
+            this.state.startingShips = options.startingShips;
+            this.state.playerIdList = options.playerIdList;
+            if (options.vpId) {
+                this.state.vpId = options.vpId;
+            }
+            
+            // Create initial empire for the first player
+            if (options.playerIdList.length > 0) {
+                const playerId = options.playerIdList[0];
+                const empire = new EmpireState();
+                empire.id = playerId;
+                empire.name = `Empire ${playerId}`;
+                empire.ownerId = playerId;
+                empire.wealth = this.state.startingWealth;
+                empire.researchPoints = this.state.startingResearchPoints;
+                empire.speed = this.state.startingSpeed;
+                empire.range = this.state.startingRange;
+                empire.battlePower = this.state.startingBattlePower;
+                this.state.empireStateList.push(empire);
+            }
+            
+            console.log("Initialized state:", this.state);
+            
+            // Broadcast initialization success
+            this.broadcast("message", {
+                type: "initialized",
+                content: "Room initialized successfully"
+            });
+        });
+
+        // Handle other messages
         this.onMessage("*", (client: Client, type: string | number, data: any) => {
+            console.log(`[Galaxy] Received message from ${client.sessionId} of type ${type}:`, data);
             console.log(`Received message from ${client.sessionId}:`, data);
             this.broadcast("message", {
                 type: "received",
@@ -49,8 +136,9 @@ export class Galaxy extends Room<GalaxyState> {
                     console.log("Fleet Created");
                     this.broadcast("message", {
                         type: "success",
-                        content: "Fleet created successfully"
+                        content: `Fleet created by ${client.sessionId}`
                     });
+                    console.log(`[Galaxy] Fleet created by ${client.sessionId}`);
                     break;
                 case "renameStar":
                     this.renameStar(data.id, data.name, client.sessionId);
