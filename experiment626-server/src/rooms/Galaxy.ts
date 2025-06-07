@@ -31,6 +31,9 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingWealth = options.startingWealth;
         this.state.startingStars = options.startingStars;
         this.state.startingShips = options.startingShips;
+        if (options.vpId) {
+            this.state.vpId = options.vpId;
+        }
         //Must insantiate all player ids
         //Must instantiate all stars
         //
@@ -58,7 +61,7 @@ export class Galaxy extends Room<GalaxyState> {
     }
     distanceBetweenStars(sourceStarId: string, destinationStarId: string): number {
         var twoStars: Star[] = this.starList.filter((star: Star) => {
-            if (star.getid() === sourceStarId || star.getid() === destinationStarId) {
+            if (star.getId() === sourceStarId || star.getId() === destinationStarId) {
                 return true;
             }
             return false;
@@ -72,22 +75,89 @@ export class Galaxy extends Room<GalaxyState> {
             }
             return false;
         });
-        return distance / fleetEmpire.getSpeed()
+        return clockTime + distance / fleetEmpire.getSpeed()
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, owner: string) {
-        this.fleetList.push(new Fleet(new FleetState(), this.idGenerator(), owner, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), owner)));
+        this.fleetList.push(new Fleet(new FleetState(), this, this.idGenerator(), owner, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), owner)));
     }
     renameStar(id: string, name: string, owner: string) {
         this.starList.forEach((star: Star) => {
-            if (star.getid() === id && star.getOwner() === owner) {
+            if (star.getId() === id && star.getOwner() === owner) {
                 star.setName(name);
             }
         });
     }
     destroyFleet(id: string) {
         this.fleetList = this.fleetList.filter((fleet: Fleet) => {
-            return fleet.getid() !== id;
+            return fleet.getId() !== id;
         });
+    }
+    fleetArrive(fleet: Fleet) {
+        var star = this.starList.find((star: Star) => {
+            return star.getId() === fleet.getDestinationStarId();
+        });
+        if (star.getOwner() === fleet.getOwner()) {
+            star.setShipCount(star.getShipCount() + fleet.getShips());
+            this.destroyFleet(fleet.getId());
+        }
+        else {
+            //Battle
+            var defendersBattlePower = this.empireList.find((empire: Empire) => {
+                return empire.getOwnerId() === star.getOwner();
+            }).getBattlePower();
+            var attackersBattlePower = this.empireList.find((empire: Empire) => {
+                return empire.getOwnerId() === fleet.getOwner();
+            }).getBattlePower();
+            var defenderShips: number = star.getShipCount();
+            var attackerShips: number = fleet.getShips();
+            var difference: number = defenderShips * (1 + defendersBattlePower/10) - attackerShips * (1 + attackersBattlePower/10);
+            var defenderWin: boolean = difference >= 0;
+            var upsetChance: number;
+            if (Math.abs(difference) > 1000) {
+                upsetChance = 0;
+            }
+            else if (Math.abs(difference) > 800) {
+                upsetChance = 1;
+            }
+            else if (Math.abs(difference) > 600) {
+                upsetChance = 2;
+            }
+            else if (Math.abs(difference) > 400) {
+                upsetChance = 3;
+            }
+            else if (Math.abs(difference) > 200) {
+                upsetChance = 4;
+            }
+            else if (Math.abs(difference) > 100) {
+                upsetChance = 5;
+            }
+            else if (Math.abs(difference) > 50) {
+                upsetChance = 10;
+            }
+            else if (Math.abs(difference) > 10) {
+                upsetChance = 20;
+            }
+            else {
+                upsetChance = 40;
+            }
+            if (defenderWin) {upsetChance -= 2.5}
+            if (Math.random() * 100 <= upsetChance) {
+                defenderWin = !defenderWin;
+            }
+            var randomizedOutcome: number = Math.random() * 10;
+            if (Math.random() >= 0.5) {
+                randomizedOutcome = randomizedOutcome * -1;
+            }
+            if (defenderWin) {
+                star.setShipCount((defenderShips - attackerShips * (1 + defendersBattlePower/10 - attackersBattlePower/10)) + randomizedOutcome);
+                this.destroyFleet(fleet.getId());
+            }
+            else {
+                star.setOwner(fleet.getOwner());
+                star.setShipCount((attackerShips - defenderShips * (1 + attackersBattlePower/10 - defendersBattlePower/10)) + randomizedOutcome);
+                this.destroyFleet(fleet.getId());
+            }
+        }
     }
     idGenerator(): string {
         this.idCounter++;

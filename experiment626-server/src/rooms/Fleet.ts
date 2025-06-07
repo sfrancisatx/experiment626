@@ -1,8 +1,10 @@
 import { Client, Room } from "@colyseus/core";
 import { FleetState } from "./schema/FleetState";
+import { Galaxy } from "./Galaxy";
 
 export class Fleet extends Room<FleetState> {
-    constructor(public state: FleetState, id: string, owner: string, sourceStarId: string, destinationStarId: string, ships: number, startTime: number, endTime: number) {
+    private galaxy: Galaxy;
+    constructor(public state: FleetState, galaxy: Galaxy, id: string, owner: string, sourceStarId: string, destinationStarId: string, ships: number, startTime: number, endTime: number) {
         super();
         this.state.id = id;
         this.state.owner = owner;
@@ -11,29 +13,32 @@ export class Fleet extends Room<FleetState> {
         this.state.ships = ships;
         this.state.startTime = startTime;
         this.state.endTime = endTime;
+        this.galaxy = galaxy;
     }
     update(deltaTime: number) {
-        
+        if (this.state.endTime <= this.state.startTime + deltaTime) {
+            this.galaxy.fleetArrive(this);
+        }
     }
-    getid() {
+    getId() {
         return this.state.id;
     }
-    getowner() {
+    getOwner() {
         return this.state.owner;
     }
-    getsourceStarId() {
+    getSourceStarId() {
         return this.state.sourceStarId;
     }
-    getdestinationStarId() {
+    getDestinationStarId() {
         return this.state.destinationStarId;
     }
-    getships() {
+    getShips() {
         return this.state.ships;
     }
-    getstartTime() {
+    getStartTime() {
         return this.state.startTime;
     }
-    getendTime() {
+    getEndTime() {
         return this.state.endTime;
     }
 }

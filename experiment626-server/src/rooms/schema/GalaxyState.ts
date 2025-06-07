@@ -17,4 +17,5 @@ export class GalaxyState extends Schema {
   @type("number") startingWealth: number = 0;
   @type("number") startingStars: number = 0;
   @type("number") startingShips: number = 0;
+  @type("string") vpId: string = "";
 }

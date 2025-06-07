@@ -11,7 +11,7 @@ export class Star {
         this.state.shipProduction = shipProduction;
         this.state.shipCount = shipCount;
     }
-    getid() {
+    getId() {
         return this.state.id;
     }
     getName() {
