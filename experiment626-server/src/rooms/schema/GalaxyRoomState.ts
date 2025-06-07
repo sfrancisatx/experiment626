@@ -22,7 +22,7 @@ export class GalaxyRoomState extends Schema {
     const galaxyHeight = 1000;
 
     for (let i = 0; i < numStars; i++) {
-      const star = new Star(`star_${i}`, 0, 0);
+      const star = new Star(`star_${i}`, 0, 0); // numerically increasing starID
       star.generatePosition(0, galaxyWidth, 0, galaxyHeight);
       star.generateAttributes();
       this.stars.set(star.id, star);
