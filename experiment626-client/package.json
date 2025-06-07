@@ -1,0 +1,13 @@
+{
+  "name": "experiment626-client",
+  "version": "1.0.0",
+  "description": "Client for experiment626",
+  "main": "client.js",
+  "scripts": {
+    "start": "tsc && node client.js"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.15.13",
+    "typescript": "^5.0.0"
+  }
+}
