@@ -12,7 +12,8 @@
     "loadtest": "tsx loadtest/example.ts --room my_room --numClients 2",
     "build": "npm run clean && tsc",
     "clean": "rimraf build",
-    "test": "mocha -r tsx test/**_test.ts --exit --timeout 15000"
+    "test": "mocha -r tsx test/**_test.ts --exit --timeout 15000",
+    "generate-types": "node ./node_modules/@colyseus/schema/lib/codegen/cli.js src/rooms/schema/GalaxyState.ts src/rooms/schema/StarState.ts src/rooms/schema/FleetState.ts src/rooms/schema/EmpireState.ts --ts --output ../experiment626-client/src/colyseusTypes --verbose"
   },
   "author": "Holland Francis, Scott Francis",
   "license": "UNLICENSED",
@@ -22,9 +23,11 @@
   "homepage": "https://github.com/sfrancisatx/experiment626#readme",
   "devDependencies": {
     "@colyseus/loadtest": "^0.16.0",
+    "@colyseus/schema": "^3.0.39",
     "@colyseus/testing": "^0.16.0",
     "@types/express": "^4.17.1",
     "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.30",
     "mocha": "^10.2.0",
     "rimraf": "^5.0.0",
     "tsx": "^4.10.2",

@@ -10,7 +10,7 @@ import express from 'express';
 /**
  * Import your Room files
  */
-import { MyRoom } from "./rooms/MyRoom";
+import { Galaxy } from "./rooms/Galaxy";
 
 export default config({
 
@@ -18,7 +18,7 @@ export default config({
         /**
          * Define your room handlers:
          */
-        gameServer.define('my_room', MyRoom);
+        gameServer.define("game_room", Galaxy);
 
     },
 

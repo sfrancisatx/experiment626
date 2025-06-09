@@ -15,6 +15,7 @@ interface createOptions {
     startingWealth: number;
     startingStars: number;
     startingShips: number;
+    id: string;
 }
 
 export class Galaxy extends Room<GalaxyState> {
@@ -31,6 +32,7 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingWealth = options.startingWealth;
         this.state.startingStars = options.startingStars;
         this.state.startingShips = options.startingShips;
+        this.state.id = options.id;
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
@@ -174,6 +176,9 @@ export class Galaxy extends Room<GalaxyState> {
     }
     getBattlePowerCost(ownerId: string) {
         return 1;
+    }
+    getId(): string {
+        return this.state.id;
     }
     onJoin(client: Client, empireName: string) {
         this.state.playerIdList.push(client.sessionId);
