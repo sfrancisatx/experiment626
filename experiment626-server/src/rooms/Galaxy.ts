@@ -51,6 +51,7 @@ export class Galaxy extends Room<GalaxyState> {
                     this.destroyFleet(data.id);
                     break;
                 default:
+                    console.warn("Gibberish in the message " + type + " " + data);
                     break;
             }
         });
@@ -77,6 +78,10 @@ export class Galaxy extends Room<GalaxyState> {
             }
             return false;
         });
+        if (!fleetEmpire) {
+            console.error("Empire of Fleet not found");
+            return clockTime + distance;
+        }
         return clockTime + distance / fleetEmpire.getSpeed()
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, owner: string) {
@@ -95,21 +100,39 @@ export class Galaxy extends Room<GalaxyState> {
         });
     }
     fleetArrive(fleet: Fleet) {
-        var star = this.starList.find((star: Star) => {
-            return star.getId() === fleet.getDestinationStarId();
+        var star = this.starList.find((star2: Star) => {
+            return star2.getId() === fleet.getDestinationStarId();
         });
+        if (!(star instanceof Star)) {
+            console.error("Star of Fleet Destination not found");
+            return;
+        }
         if (star.getOwner() === fleet.getOwner()) {
             star.setShipCount(star.getShipCount() + fleet.getShips());
             this.destroyFleet(fleet.getId());
         }
         else {
             //Battle
-            var defendersBattlePower = this.empireList.find((empire: Empire) => {
+            var defenders = this.empireList.find((empire: Empire) => {
+                if (!star) {
+                    console.error("Star of Fleet Destination not found");
+                    return false;
+                }
                 return empire.getOwnerId() === star.getOwner();
-            }).getBattlePower();
-            var attackersBattlePower = this.empireList.find((empire: Empire) => {
+            })
+            if (!defenders) {
+                console.error("Defender Empire not found");
+                return;
+            }
+            var defendersBattlePower = defenders.getBattlePower();
+            var attackers = this.empireList.find((empire: Empire) => {
                 return empire.getOwnerId() === fleet.getOwner();
-            }).getBattlePower();
+            })
+            if (!attackers) {
+                console.error("Attacker Empire not found");
+                return;
+            }
+            var attackersBattlePower = attackers.getBattlePower();
             var defenderShips: number = star.getShipCount();
             var attackerShips: number = fleet.getShips();
             var difference: number = defenderShips * (1 + defendersBattlePower/10) - attackerShips * (1 + attackersBattlePower/10);
@@ -180,8 +203,14 @@ export class Galaxy extends Room<GalaxyState> {
     getId(): string {
         return this.state.id;
     }
-    onJoin(client: Client, empireName: string) {
+    onJoin(client: Client, options: {empireName: string}) {
         this.state.playerIdList.push(client.sessionId);
-        this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), empireName, client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
+        if (options.empireName) {
+            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
+        }
+        else {
+            console.error("No empire name provided");
+            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
+        }
     }
 }

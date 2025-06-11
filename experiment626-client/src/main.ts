@@ -8,16 +8,16 @@ const sendButton = document.getElementById("sendButton")!;
 const messagesList = document.getElementById("messages")!;
 
 // 1. Connect to the Colyseus server
-const client = new Client("ws://localhost:2567");
+const client = new Client("ws://localhost:5111");
 
 // 2. Join or create a room
-client.joinOrCreate<GalaxyState>("game_room").then((room: Room<GalaxyState>) => {
+const empireName = prompt("Enter your empire name:");
+client.joinOrCreate<GalaxyState>("game_room", {empireName}).then((room: Room<GalaxyState>) => {
   console.log("✅ Joined room:", room.roomId);
   statusEl.textContent = `✅ Connected to room: ${room.roomId}`;
 
   // 3. React to server-side state changes
   room.onStateChange((state) => {
-    console.log("🌀 State updated:", state);
     // TODO: Update your UI here
   });
 
@@ -43,7 +43,7 @@ client.joinOrCreate<GalaxyState>("game_room").then((room: Room<GalaxyState>) => 
   sendButton.addEventListener("click", () => {
     const message = messageInput.value.trim();
     if (message) {
-      room.send("chat", { message });
+      room.send(message, { message });
       messageInput.value = "";
     }
   });

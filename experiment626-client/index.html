@@ -7,7 +7,17 @@
     <title>Vite + TS</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="status">🔌 Connecting...</div>
+
+      <div style="margin-top: 1rem;">
+        <input id="messageInput" type="text" placeholder="Type a message..." />
+        <button id="sendButton">Send</button>
+      </div>
+
+      <ul id="messages" style="margin-top: 1rem; list-style: none; padding-left: 0;"></ul>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
