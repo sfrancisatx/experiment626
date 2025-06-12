@@ -5,6 +5,7 @@ import { Fleet } from "./Fleet";
 import { Empire } from "./Empire";
 import { EmpireState } from "./schema/EmpireState";
 import { FleetState } from "./schema/FleetState";
+import { StarState } from "./schema/StarState";
 
 interface createOptions {
     vpId?: string;
@@ -16,7 +17,14 @@ interface createOptions {
     startingStars: number;
     startingShips: number;
     id: string;
+    size: string;
 }
+
+const galaxySize = new Map<string, number>([
+    ["small", 5000],
+    ["medium", 10000],
+    ["large", 15000]
+]);
 
 export class Galaxy extends Room<GalaxyState> {
     fleetList: Fleet[] = [];
@@ -24,6 +32,7 @@ export class Galaxy extends Room<GalaxyState> {
     empireList: Empire[] = [];
     idCounter: number = 0;
     onCreate(options: createOptions) {
+        console.log("Galaxy created");
         this.state = new GalaxyState();
         this.state.startingResearchPoints = options.startingResearchPoints;
         this.state.startingSpeed = options.startingSpeed;
@@ -33,6 +42,7 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingStars = options.startingStars;
         this.state.startingShips = options.startingShips;
         this.state.id = options.id;
+        this.state.size = options.size;
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
@@ -50,6 +60,27 @@ export class Galaxy extends Room<GalaxyState> {
                 case "destroyFleet":
                     this.destroyFleet(data.id);
                     break;
+                case "listFleets":
+                    console.log(this.fleetList);
+                    break;
+                case "listStars":
+                    console.log(this.starList);
+                    break;
+                case "listEmpires":
+                    console.log(this.empireList);
+                    break;
+                case "listPlayers":
+                    console.log(this.state.playerIdList);
+                    break;
+                case "listClockTime":
+                    console.log(this.state.clockTime);
+                    break;
+                case "listVP":
+                    console.log(this.state.vpId);
+                    break;
+                case "init":
+                    this.initGalaxy(data.generationMethod);
+                    break;
                 default:
                     console.warn("Gibberish in the message " + type + " " + data);
                     break;
@@ -61,6 +92,44 @@ export class Galaxy extends Room<GalaxyState> {
                 fleet.update(deltaTime);
             });
         });
+    }
+    initGalaxy(generationMethod: string) {
+        switch (generationMethod) {
+            case "idk":
+                break;
+            default:
+                var gsize = galaxySize.get(this.state.size);
+                if (!gsize) {
+                    console.error("Invalid galaxy size");
+                    gsize = galaxySize.get("medium")!;
+                }
+                for (let i = 0; i < gsize/100; i++) {
+                    var x: number = Math.round(Math.random() * gsize);
+                    var y: number = Math.round(Math.random() * gsize);
+                    var notTooClose: boolean = true;
+                    for (let j = 0; j < this.starList.length; j++) {
+                        var distance = Math.sqrt(Math.pow(x - this.starList[j].getX(), 2) + Math.pow(y - this.starList[j].getY(), 2));
+                        if (distance < 100) {
+                            notTooClose = false;
+                        }
+                    }
+                    if (notTooClose) {
+                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 100, 0));
+                    }
+                }
+                this.state.playerIdList.forEach((playerId: string) => {
+                    var randomstar = this.starList[Math.round(Math.random() * this.starList.length)];
+                    randomstar.setOwner(playerId);
+                    this.empireList.find((empire: Empire) => {
+                        if (empire.getOwnerId() === playerId) {
+                            var newStarsOwned: Star[] = empire.getStarsOwned();
+                            newStarsOwned.push(randomstar);
+                            empire.setStarsOwned(newStarsOwned);
+                        }
+                    });
+                });
+                break;
+        }
     }
     distanceBetweenStars(sourceStarId: string, destinationStarId: string): number {
         var twoStars: Star[] = this.starList.filter((star: Star) => {

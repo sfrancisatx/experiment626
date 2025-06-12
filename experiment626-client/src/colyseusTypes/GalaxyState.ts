@@ -21,4 +21,5 @@ export class GalaxyState extends Schema {
     @type("number") public startingStars!: number;
     @type("number") public startingShips!: number;
     @type("string") public vpId!: string;
+    @type("string") public size!: string;
 }

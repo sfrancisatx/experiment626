@@ -26,7 +26,8 @@ export class Empire extends Room<EmpireState> {
         return this.state.ownerId;
     }
     getStarsOwned() {
-        return this.starsOwned;
+        var passingStarsOwned = this.starsOwned;
+        return passingStarsOwned;
     }
     getWealth() {
         return this.state.wealth;
@@ -48,6 +49,10 @@ export class Empire extends Room<EmpireState> {
     }
     setOwnerId(ownerId: string) {
         this.state.ownerId = ownerId;
+    }
+    setStarsOwned(starsOwned: Star[]) {
+        var tempStarsOwned = starsOwned;
+        this.starsOwned = tempStarsOwned;
     }
     setWealth(wealth: number) {
         this.state.wealth = wealth;
