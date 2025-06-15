@@ -38,3 +38,40 @@ Ships
 Research
 Range
 - How far your ships can move away from you
+
+---
+
+## Lobby Room (Planned)
+
+The Lobby will be a new room type on the server, responsible for handling player entry and game discovery/creation. Its planned features and requirements:
+
+- **Player Entry:**
+  - Players join the lobby with a chosen Player name.
+
+- **Game Discovery:**
+  - The lobby maintains and displays a list of all existing games (Galaxies) currently running on the server.
+
+- **Game Creation:**
+  - Players can create a new game (Galaxy) from the lobby. This action will instantiate a new Galaxy room and add it to the list of available games.
+
+- **Game Joining:**
+  - Players can join an existing game (Galaxy) from the lobby, transferring them from the lobby room to the selected Galaxy room.
+
+- **Lobby State:**
+  - List of connected players (with names).
+  - List of available games (Galaxy rooms), including their status (e.g., open/in-progress, player count, etc.).
+
+- **Required Interactions:**
+  - Join lobby (with name)
+  - List games
+  - Create game
+  - Join game
+
+- **Server Implementation:**
+  - Implement a new Lobby room type and schema.
+  - Provide methods/events for the above interactions.
+
+- **Client Implementation (future):**
+  - UI for entering player name, viewing game list, creating/joining games.
+
+---
