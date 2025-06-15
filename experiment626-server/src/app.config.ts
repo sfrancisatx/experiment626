@@ -11,6 +11,7 @@ import express from 'express';
  * Import your Room files
  */
 import { Galaxy } from "./rooms/Galaxy";
+import { LobbyRoom } from "./rooms/Lobby";
 
 export default config({
 
@@ -19,6 +20,7 @@ export default config({
          * Define your room handlers:
          */
         gameServer.define("game_room", Galaxy);
+        gameServer.define("lobby", LobbyRoom);
 
     },
 
