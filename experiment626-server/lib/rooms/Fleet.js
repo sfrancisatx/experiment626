@@ -1,11 +1,11 @@
-import { Client, Room } from "@colyseus/core";
-import { FleetState } from "./schema/FleetState";
-import { Galaxy } from "./Galaxy";
-
-export class Fleet extends Room<FleetState> {
-    private galaxy: Galaxy;
-    constructor(public state: FleetState, galaxy: Galaxy, id: string, owner: string, sourceStarId: string, destinationStarId: string, ships: number, startTime: number, endTime: number) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Fleet = void 0;
+const core_1 = require("@colyseus/core");
+class Fleet extends core_1.Room {
+    constructor(state, galaxy, id, owner, sourceStarId, destinationStarId, ships, startTime, endTime) {
         super();
+        this.state = state;
         this.state.id = id;
         this.state.owner = owner;
         this.state.sourceStarId = sourceStarId;
@@ -15,8 +15,8 @@ export class Fleet extends Room<FleetState> {
         this.state.endTime = endTime;
         this.galaxy = galaxy;
     }
-    update(clockTime: number) {
-        if (this.state.endTime <= clockTime) {
+    update(deltaTime) {
+        if (this.state.endTime <= this.state.startTime + deltaTime) {
             this.galaxy.fleetArrive(this);
         }
     }
@@ -42,3 +42,4 @@ export class Fleet extends Room<FleetState> {
         return this.state.endTime;
     }
 }
+exports.Fleet = Fleet;

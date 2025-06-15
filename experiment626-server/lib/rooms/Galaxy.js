@@ -1,39 +1,30 @@
-import { GalaxyState } from "./schema/GalaxyState";
-import { Client, Room } from "@colyseus/core";
-import { Star } from "./Star";
-import { Fleet } from "./Fleet";
-import { Empire } from "./Empire";
-import { EmpireState } from "./schema/EmpireState";
-import { FleetState } from "./schema/FleetState";
-import { StarState } from "./schema/StarState";
-
-interface createOptions {
-    vpId?: string;
-    startingResearchPoints: number;
-    startingSpeed: number;
-    startingRange: number;
-    startingBattlePower: number;
-    startingWealth: number;
-    startingStars: number;
-    startingShips: number;
-    id: string;
-    size: string;
-}
-
-const galaxySize = new Map<string, number>([
-    ["small", 1000],
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Galaxy = void 0;
+const GalaxyState_1 = require("./schema/GalaxyState");
+const core_1 = require("@colyseus/core");
+const Star_1 = require("./Star");
+const Fleet_1 = require("./Fleet");
+const Empire_1 = require("./Empire");
+const EmpireState_1 = require("./schema/EmpireState");
+const FleetState_1 = require("./schema/FleetState");
+const StarState_1 = require("./schema/StarState");
+const galaxySize = new Map([
+    ["small", 5000],
     ["medium", 10000],
     ["large", 15000]
 ]);
-
-export class Galaxy extends Room<GalaxyState> {
-    fleetList: Fleet[] = [];
-    starList: Star[] = [];
-    empireList: Empire[] = [];
-    idCounter: number = 0;
-    onCreate(options: createOptions) {
+class Galaxy extends core_1.Room {
+    constructor() {
+        super(...arguments);
+        this.fleetList = [];
+        this.starList = [];
+        this.empireList = [];
+        this.idCounter = 0;
+    }
+    onCreate(options) {
         console.log("Galaxy created");
-        this.state = new GalaxyState();
+        this.state = new GalaxyState_1.GalaxyState();
         this.state.startingResearchPoints = options.startingResearchPoints;
         this.state.startingSpeed = options.startingSpeed;
         this.state.startingRange = options.startingRange;
@@ -49,7 +40,7 @@ export class Galaxy extends Room<GalaxyState> {
         //Must insantiate all player ids
         //Must instantiate all stars
         //
-        this.onMessage("*", (client: Client, type: string | number, data: any) => {
+        this.onMessage("*", (client, type, data) => {
             switch (type) {
                 case "createFleet":
                     this.createFleet(data.sourceStarId, data.destinationStarId, data.ships, client.sessionId);
@@ -89,25 +80,24 @@ export class Galaxy extends Room<GalaxyState> {
                     break;
             }
         });
-        this.setSimulationInterval((deltaTime: number) => {
+        this.setSimulationInterval((deltaTime) => {
             this.state.clockTime += deltaTime;
-            this.fleetList.forEach((fleet: Fleet) => {
-                fleet.update(this.state.clockTime);
+            this.fleetList.forEach((fleet) => {
+                fleet.update(deltaTime);
             });
         });
     }
-    initGalaxy(generationMethod: string) {
-        this.starList = [];
+    initGalaxy(generationMethod) {
         switch (generationMethod) {
             case "test":
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
                     console.error("Invalid galaxy size");
-                    gsize = galaxySize.get("small")!;
+                    gsize = galaxySize.get("medium");
                 }
-                for (let i = 10; i < gsize; i+= 10) {
-                    for (let j = 10; j < gsize; j+= 10) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 100, 0));
+                for (let i = 0; i < gsize; i += 1000) {
+                    for (let j = 0; j < gsize; j += 1000) {
+                        this.starList.push(new Star_1.Star(new StarState_1.StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 100, 0));
                     }
                 }
                 this.assignCoreStars();
@@ -116,12 +106,12 @@ export class Galaxy extends Room<GalaxyState> {
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
                     console.error("Invalid galaxy size");
-                    gsize = galaxySize.get("small")!;
+                    gsize = galaxySize.get("medium");
                 }
-                for (let i = 0; i < gsize/100; i++) {
-                    var x: number = Math.round(Math.random() * gsize);
-                    var y: number = Math.round(Math.random() * gsize);
-                    var notTooClose: boolean = true;
+                for (let i = 0; i < gsize / 100; i++) {
+                    var x = Math.round(Math.random() * gsize);
+                    var y = Math.round(Math.random() * gsize);
+                    var notTooClose = true;
                     for (let j = 0; j < this.starList.length; j++) {
                         var distance = Math.sqrt(Math.pow(x - this.starList[j].getX(), 2) + Math.pow(y - this.starList[j].getY(), 2));
                         if (distance < 100) {
@@ -129,64 +119,61 @@ export class Galaxy extends Room<GalaxyState> {
                         }
                     }
                     if (notTooClose) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 100, 0));
+                        this.starList.push(new Star_1.Star(new StarState_1.StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 100, 0));
                     }
                 }
                 this.assignCoreStars();
                 break;
         }
-        console.log("done init galaxy");
     }
     printMap() {
-        console.log("printing map " + this.state.clockTime/1000);
-        const size = galaxySize.get(this.state.size) || galaxySize.get("small")!;
-        const occupied = new Map<string, string>();
-    
-        // First pass: mark all stars
-        for (const star of this.starList) {
-            const key = `${star.getX()},${star.getY()}`;
-            occupied.set(key, "🟨");
+        var size = galaxySize.get(this.state.size);
+        if (!size) {
+            console.error("Invalid galaxy size");
+            size = galaxySize.get("medium");
         }
-    
-        // Second pass: mark all fleets (overwrite or merge)
-        for (const fleet of this.fleetList) {
-            const coords = this.approximateCoordinates(fleet);
-            const key = `${coords.x},${coords.y}`;
-            if (occupied.has(key)) {
-                occupied.set(key, "🟥"); // Star + Fleet
-            } else {
-                occupied.set(key, "🟦");
-            }
-        }
-    
-        let map = "";
+        var map = "";
         for (let y = 0; y < size; y++) {
-            let row = "";
+            map += "\n";
             for (let x = 0; x < size; x++) {
-                const key = `${x},${y}`;
-                row += occupied.get(key) || "⬛️";
+                var addedSquare = false;
+                this.starList.forEach((star) => {
+                    if (star.getX() === x && star.getY() === y) {
+                        map += "🟨";
+                        addedSquare = true;
+                    }
+                });
+                this.fleetList.forEach((fleet) => {
+                    const fleetCoordinates = this.approximateCoordinates(fleet);
+                    if (fleetCoordinates.x === x && fleetCoordinates.y === y && !addedSquare) {
+                        map += "🟦";
+                        addedSquare = true;
+                    }
+                    else if (fleetCoordinates.x === x && fleetCoordinates.y === y && addedSquare) {
+                        map = map.substring(0, map.length - 1);
+                        map += "🟥";
+                    }
+                });
+                if (!addedSquare) {
+                    map += "⬛️";
+                }
             }
-            map += row + "\n";
         }
-    
-        // Trim trailing newline
-        map = map.trimEnd();
-        console.log("done printing map " + this.state.clockTime/1000);
-        this.clients.forEach((client: Client) => {
+        this.clients.forEach((client) => {
             client.send("mapData", { map: map });
         });
-    }    
-    approximateCoordinates(fleet: Fleet): {x: number, y: number} {
-        var x: number = -1;
-        var y: number = -1;
+    }
+    approximateCoordinates(fleet) {
+        var x = -1;
+        var y = -1;
         var percentDone = (this.state.clockTime - fleet.getStartTime()) / (fleet.getEndTime() - fleet.getStartTime());
-        var sourceStar = this.starList.find((star: Star) => {
+        var sourceStar = this.starList.find((star) => {
             if (star.getId() === fleet.getSourceStarId()) {
                 return true;
             }
             return false;
         });
-        var destinationStar = this.starList.find((star: Star) => {
+        var destinationStar = this.starList.find((star) => {
             if (star.getId() === fleet.getDestinationStarId()) {
                 return true;
             }
@@ -194,37 +181,29 @@ export class Galaxy extends Room<GalaxyState> {
         });
         if (!sourceStar || !destinationStar) {
             console.error("Source or destination star not found");
-            return {x: x, y: y};
+            return { x: x, y: y };
         }
         x = sourceStar.getX() + (destinationStar.getX() - sourceStar.getX()) * percentDone;
         y = sourceStar.getY() + (destinationStar.getY() - sourceStar.getY()) * percentDone;
-        return {x: x, y: y};
+        return { x: x, y: y };
     }
     assignCoreStars() {
-        this.state.playerIdList.forEach((playerId: string) => {
-            var foundStar: boolean = false;
-            while (foundStar === false) {
-                var randomstar = this.starList[Math.floor(Math.random() * this.starList.length)];
-                if (!randomstar) {
-                    console.error("Random star not found");
-                    break;
-                }
-                if (!randomstar.getOwner()) {
-                    foundStar = true;
-                    randomstar.setOwner(playerId);
-                    this.empireList.find((empire: Empire) => {
-                        if (empire.getOwnerId() === playerId) {
-                            var newStarsOwned: Star[] = empire.getStarsOwned();
-                            newStarsOwned.push(randomstar);
-                            empire.setStarsOwned(newStarsOwned);
-                        }
-                    });
-                }
+        this.state.playerIdList.forEach((playerId) => {
+            var randomstar = this.starList[Math.round(Math.random() * this.starList.length)];
+            if (randomstar.getOwner() === "") {
+                randomstar.setOwner(playerId);
+                this.empireList.find((empire) => {
+                    if (empire.getOwnerId() === playerId) {
+                        var newStarsOwned = empire.getStarsOwned();
+                        newStarsOwned.push(randomstar);
+                        empire.setStarsOwned(newStarsOwned);
+                    }
+                });
             }
         });
     }
-    distanceBetweenStars(sourceStarId: string, destinationStarId: string): number {
-        var twoStars: Star[] = this.starList.filter((star: Star) => {
+    distanceBetweenStars(sourceStarId, destinationStarId) {
+        var twoStars = this.starList.filter((star) => {
             if (star.getId() === sourceStarId || star.getId() === destinationStarId) {
                 return true;
             }
@@ -232,8 +211,8 @@ export class Galaxy extends Room<GalaxyState> {
         });
         return Math.sqrt(Math.pow(twoStars[0].getX() - twoStars[1].getX(), 2) + Math.pow(twoStars[0].getY() - twoStars[1].getY(), 2));
     }
-    fleetEndTimeCalculator(clockTime: number, distance: number, owner: string): number {
-        var fleetEmpire = this.empireList.find((empire: Empire) => {
+    fleetEndTimeCalculator(clockTime, distance, owner) {
+        var fleetEmpire = this.empireList.find((empire) => {
             if (empire.getOwnerId() === owner) {
                 return true;
             }
@@ -243,28 +222,28 @@ export class Galaxy extends Room<GalaxyState> {
             console.error("Empire of Fleet not found");
             return clockTime + distance;
         }
-        return clockTime + distance / fleetEmpire.getSpeed()
+        return clockTime + distance / fleetEmpire.getSpeed();
     }
-    createFleet(sourceStarId: string, destinationStarId: string, ships: number, owner: string) {
-        this.fleetList.push(new Fleet(new FleetState(), this, this.idGenerator(), owner, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), owner)));
+    createFleet(sourceStarId, destinationStarId, ships, owner) {
+        this.fleetList.push(new Fleet_1.Fleet(new FleetState_1.FleetState(), this, this.idGenerator(), owner, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), owner)));
     }
-    renameStar(id: string, name: string, owner: string) {
-        this.starList.forEach((star: Star) => {
+    renameStar(id, name, owner) {
+        this.starList.forEach((star) => {
             if (star.getId() === id && star.getOwner() === owner) {
                 star.setName(name);
             }
         });
     }
-    destroyFleet(id: string) {
-        this.fleetList = this.fleetList.filter((fleet: Fleet) => {
+    destroyFleet(id) {
+        this.fleetList = this.fleetList.filter((fleet) => {
             return fleet.getId() !== id;
         });
     }
-    fleetArrive(fleet: Fleet) {
-        var star = this.starList.find((star2: Star) => {
+    fleetArrive(fleet) {
+        var star = this.starList.find((star2) => {
             return star2.getId() === fleet.getDestinationStarId();
         });
-        if (!(star instanceof Star)) {
+        if (!(star instanceof Star_1.Star)) {
             console.error("Star of Fleet Destination not found");
             return;
         }
@@ -274,31 +253,31 @@ export class Galaxy extends Room<GalaxyState> {
         }
         else {
             //Battle
-            var defenders = this.empireList.find((empire: Empire) => {
+            var defenders = this.empireList.find((empire) => {
                 if (!star) {
                     console.error("Star of Fleet Destination not found");
                     return false;
                 }
                 return empire.getOwnerId() === star.getOwner();
-            })
+            });
             if (!defenders) {
                 console.error("Defender Empire not found");
                 return;
             }
             var defendersBattlePower = defenders.getBattlePower();
-            var attackers = this.empireList.find((empire: Empire) => {
+            var attackers = this.empireList.find((empire) => {
                 return empire.getOwnerId() === fleet.getOwner();
-            })
+            });
             if (!attackers) {
                 console.error("Attacker Empire not found");
                 return;
             }
             var attackersBattlePower = attackers.getBattlePower();
-            var defenderShips: number = star.getShipCount();
-            var attackerShips: number = fleet.getShips();
-            var difference: number = defenderShips * (1 + defendersBattlePower/10) - attackerShips * (1 + attackersBattlePower/10);
-            var defenderWin: boolean = difference >= 0;
-            var upsetChance: number;
+            var defenderShips = star.getShipCount();
+            var attackerShips = fleet.getShips();
+            var difference = defenderShips * (1 + defendersBattlePower / 10) - attackerShips * (1 + attackersBattlePower / 10);
+            var defenderWin = difference >= 0;
+            var upsetChance;
             if (Math.abs(difference) > 1000) {
                 upsetChance = 0;
             }
@@ -326,52 +305,55 @@ export class Galaxy extends Room<GalaxyState> {
             else {
                 upsetChance = 40;
             }
-            if (defenderWin) {upsetChance -= 2.5}
+            if (defenderWin) {
+                upsetChance -= 2.5;
+            }
             if (Math.random() * 100 <= upsetChance) {
                 defenderWin = !defenderWin;
             }
-            var randomizedOutcome: number = Math.random() * 10;
+            var randomizedOutcome = Math.random() * 10;
             if (Math.random() >= 0.5) {
                 randomizedOutcome = randomizedOutcome * -1;
             }
             if (defenderWin) {
-                star.setShipCount((defenderShips - attackerShips * (1 + defendersBattlePower/10 - attackersBattlePower/10)) + randomizedOutcome);
+                star.setShipCount((defenderShips - attackerShips * (1 + defendersBattlePower / 10 - attackersBattlePower / 10)) + randomizedOutcome);
                 this.destroyFleet(fleet.getId());
             }
             else {
                 star.setOwner(fleet.getOwner());
-                star.setShipCount((attackerShips - defenderShips * (1 + attackersBattlePower/10 - defendersBattlePower/10)) + randomizedOutcome);
+                star.setShipCount((attackerShips - defenderShips * (1 + attackersBattlePower / 10 - defendersBattlePower / 10)) + randomizedOutcome);
                 this.destroyFleet(fleet.getId());
             }
         }
     }
-    idGenerator(): string {
+    idGenerator() {
         this.idCounter++;
         return this.idCounter.toString();
     }
-    getFactoryCost(ownerId: string) {
+    getFactoryCost(ownerId) {
         return 1;
     }
-    getSpeedCost(ownerId: string) {
+    getSpeedCost(ownerId) {
         return 1;
     }
-    getRangeCost(ownerId: string) {
+    getRangeCost(ownerId) {
         return 1;
     }
-    getBattlePowerCost(ownerId: string) {
+    getBattlePowerCost(ownerId) {
         return 1;
     }
-    getId(): string {
+    getId() {
         return this.state.id;
     }
-    onJoin(client: Client, options: {empireName: string}) {
+    onJoin(client, options) {
         this.state.playerIdList.push(client.sessionId);
         if (options.empireName) {
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
+            this.empireList.push(new Empire_1.Empire(new EmpireState_1.EmpireState(), this.idGenerator(), options.empireName, client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
         }
         else {
             console.error("No empire name provided");
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
+            this.empireList.push(new Empire_1.Empire(new EmpireState_1.EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, [], this.state.startingWealth, this.state.startingResearchPoints, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower));
         }
     }
 }
+exports.Galaxy = Galaxy;
