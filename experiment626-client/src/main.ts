@@ -21,29 +21,67 @@ client.joinOrCreate<GalaxyState>("game_room", {empireName}).then((room: Room<Gal
     // TODO: Update your UI here
   });
 
-  // 4. Send a test message
-  room.send("pickup", { itemId: "abc123" });
-
   // 5. Handle incoming messages
   room.onMessage("*", (type, data) => {
     console.log(`📨 [${type}]`, data);
-    const li = document.createElement("li");
-    li.textContent = `📩 [${type}] ${JSON.stringify(data)}`;
-    messagesList.appendChild(li);
+    switch (type) {
+      case "mapData":
+        const mapDisplay = document.getElementById("mapDisplay");
+        if (mapDisplay) mapDisplay.textContent = data.map;
+        break;
+      default:
+        break;
+    }
   });
 
   // 6. Handle keyboard input
   document.addEventListener("keydown", (e) => {
     if (e.key === "p") {
-      room.send("pickup", { itemId: "abc123" });
+      room.send("mapPrint", {});
     }
   });
 
   // 7. Handle UI input for chat/messages
   sendButton.addEventListener("click", () => {
-    const message = messageInput.value.trim();
+    var message = messageInput.value.trim();
     if (message) {
-      room.send(message, { message });
+      var data = {};
+      var index = message.indexOf(".");
+      var instruction = message;
+      if (index !== -1) {
+        instruction = message.substring(0, index);
+        var other = message.substring(index + 1);
+        switch (instruction) {
+          case "createFleet":
+            index = other.indexOf(".");
+            var sourceStarId = other.substring(0, index);
+            other = other.substring(index + 1);
+            index = other.indexOf(".");
+            var destinationStarId = other.substring(0, index);
+            other = other.substring(index + 1);
+            var ships = parseInt(other);
+            data = { sourceStarId: sourceStarId, destinationStarId: destinationStarId, ships: ships };
+            break;
+          case "renameStar":
+            index = other.indexOf(".");
+            var id = other.substring(0, index);
+            other = other.substring(index + 1);
+            var name = other;
+            data = { id: id, name: name };
+            break;
+          case "destroyFleet":
+            var id = other;
+            data = { id: id };
+            break;
+          case "init":
+            var generationMethod = other;
+            data = { generationMethod: generationMethod };
+            break;
+          default:
+            break;
+        }
+      }
+      room.send(instruction, data);
       messageInput.value = "";
     }
   });
