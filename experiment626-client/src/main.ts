@@ -37,7 +37,7 @@ client.joinOrCreate<GalaxyState>("game_room", {empireName}).then((room: Room<Gal
   // 6. Handle keyboard input
   document.addEventListener("keydown", (e) => {
     if (e.key === "p") {
-      room.send("mapPrint", {});
+      room.send("printMap", {});
     }
   });
 
