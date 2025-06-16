@@ -6,6 +6,9 @@ import { Empire } from "./Empire";
 import { EmpireState } from "./schema/EmpireState";
 import { FleetState } from "./schema/FleetState";
 import { StarState } from "./schema/StarState";
+import { ArraySchema } from "@colyseus/schema";
+import { OccupiedSpace } from "./OccupiedSpace";
+import { OccupiedSpaceState } from "./schema/OccupiedSpaceState";
 
 interface createOptions {
     vpId?: string;
@@ -43,6 +46,7 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingShips = options.startingShips;
         this.state.id = options.id;
         this.state.size = options.size;
+        this.state.mapBlueprint = new ArraySchema<OccupiedSpaceState>();
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
@@ -73,16 +77,20 @@ export class Galaxy extends Room<GalaxyState> {
                     console.log(this.state.playerIdList);
                     break;
                 case "listClockTime":
-                    console.log(this.state.clockTime);
+                    console.log(this.state.clockTime/1000);
                     break;
                 case "listVP":
                     console.log(this.state.vpId);
                     break;
                 case "init":
+                    console.log("init " + this.state.clockTime/1000);
                     this.initGalaxy(data.generationMethod);
+                    console.log("done init " + this.state.clockTime/1000);
                     break;
                 case "printMap":
+                    console.log("printMap " + this.state.clockTime/1000);
                     this.printMap();
+                    console.log("done printMap " + this.state.clockTime/1000);
                     break;
                 default:
                     console.warn("Gibberish in the message " + type + " " + data);
@@ -94,6 +102,7 @@ export class Galaxy extends Room<GalaxyState> {
             this.fleetList.forEach((fleet: Fleet) => {
                 fleet.update(this.state.clockTime);
             });
+            this.printMap();
         });
     }
     initGalaxy(generationMethod: string) {
@@ -104,9 +113,10 @@ export class Galaxy extends Room<GalaxyState> {
                 if (!gsize) {
                     console.error("Invalid galaxy size");
                     gsize = galaxySize.get("small")!;
+                    this.state.size = "small";
                 }
-                for (let i = 10; i < gsize; i+= 10) {
-                    for (let j = 10; j < gsize; j+= 10) {
+                for (let i = 50; i < gsize; i+= 50) {
+                    for (let j = 50; j < gsize; j+= 50) {
                         this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 100, 0));
                     }
                 }
@@ -118,14 +128,15 @@ export class Galaxy extends Room<GalaxyState> {
                     console.error("Invalid galaxy size");
                     gsize = galaxySize.get("small")!;
                 }
-                for (let i = 0; i < gsize/100; i++) {
+                for (let i = 0; i < gsize/10; i++) {
                     var x: number = Math.round(Math.random() * gsize);
                     var y: number = Math.round(Math.random() * gsize);
                     var notTooClose: boolean = true;
                     for (let j = 0; j < this.starList.length; j++) {
                         var distance = Math.sqrt(Math.pow(x - this.starList[j].getX(), 2) + Math.pow(y - this.starList[j].getY(), 2));
-                        if (distance < 100) {
+                        if (distance < 10) {
                             notTooClose = false;
+                            i--;
                         }
                     }
                     if (notTooClose) {
@@ -135,47 +146,26 @@ export class Galaxy extends Room<GalaxyState> {
                 this.assignCoreStars();
                 break;
         }
-        console.log("done init galaxy");
     }
     printMap() {
-        console.log("printing map " + this.state.clockTime/1000);
-        const size = galaxySize.get(this.state.size) || galaxySize.get("small")!;
-        const occupied = new Map<string, string>();
-    
-        // First pass: mark all stars
-        for (const star of this.starList) {
-            const key = `${star.getX()},${star.getY()}`;
-            occupied.set(key, "🟨");
-        }
-    
-        // Second pass: mark all fleets (overwrite or merge)
-        for (const fleet of this.fleetList) {
-            const coords = this.approximateCoordinates(fleet);
-            const key = `${coords.x},${coords.y}`;
-            if (occupied.has(key)) {
-                occupied.set(key, "🟥"); // Star + Fleet
-            } else {
-                occupied.set(key, "🟦");
-            }
-        }
-    
-        let map = "";
-        for (let y = 0; y < size; y++) {
-            let row = "";
-            for (let x = 0; x < size; x++) {
-                const key = `${x},${y}`;
-                row += occupied.get(key) || "⬛️";
-            }
-            map += row + "\n";
-        }
-    
-        // Trim trailing newline
-        map = map.trimEnd();
-        console.log("done printing map " + this.state.clockTime/1000);
-        this.clients.forEach((client: Client) => {
-            client.send("mapData", { map: map });
+        this.state.mapBlueprint.clear();
+        this.starList.forEach((star: Star) => {
+            const occupiedSpaceState = new OccupiedSpaceState();
+            occupiedSpaceState.x = star.getX();
+            occupiedSpaceState.y = star.getY();
+            occupiedSpaceState.type = "s";
+            this.state.mapBlueprint.push(occupiedSpaceState);
         });
-    }    
+        this.fleetList.forEach((fleet: Fleet) => {
+            var coords = this.approximateCoordinates(fleet);
+            const occupiedSpaceState = new OccupiedSpaceState();
+            occupiedSpaceState.x = coords.x;
+            occupiedSpaceState.y = coords.y;
+            occupiedSpaceState.type = "f";
+            this.state.mapBlueprint.push(occupiedSpaceState);
+        });
+
+    }
     approximateCoordinates(fleet: Fleet): {x: number, y: number} {
         var x: number = -1;
         var y: number = -1;
