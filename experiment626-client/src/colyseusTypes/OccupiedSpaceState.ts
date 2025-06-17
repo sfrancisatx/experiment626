@@ -8,13 +8,8 @@
 import { Schema, type, ArraySchema, MapSchema, SetSchema, type DataChange } from '@colyseus/schema';
 
 
-export class StarState extends Schema {
-    @type("string") public id!: string;
-    @type("string") public name!: string;
-    @type("string") public owner!: string;
+export class OccupiedSpaceState extends Schema {
     @type("number") public x!: number;
     @type("number") public y!: number;
-    @type("number") public wealthProduction!: number;
-    @type("number") public shipProduction!: number;
-    @type("number") public shipCount!: number;
+    @type("string") public type!: string;
 }

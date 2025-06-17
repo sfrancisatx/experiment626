@@ -1,12 +1,25 @@
 import { GalaxyState } from "./colyseusTypes/GalaxyState";
 import { Client, Room } from "colyseus.js";
 import { showLandingPage } from "./LandingPage";
+import { OccupiedSpaceState } from "./colyseusTypes/OccupiedSpaceState";
 
 // HTML elements
 const statusEl = document.getElementById("status")!;
 const messageInput = document.getElementById("messageInput") as HTMLInputElement;
 const sendButton = document.getElementById("sendButton")!;
 const messagesList = document.getElementById("messages")!;
+const galaxySize = new Map<string, number>([
+  ["itty", 100],
+  ["small", 1000],
+  ["medium", 10000],
+  ["large", 15000]
+]);
+
+interface occupiedSpace {
+    x: number;
+    y: number;
+    type: string;
+}
 
 // 1. Connect to the Colyseus server
 const client = new Client("ws://localhost:5111");
@@ -24,20 +37,54 @@ if (!window.location.hash || window.location.hash === "#lobby") {
 
     // 3. React to server-side state changes
     room.onStateChange((state) => {
-      // TODO: Update your UI here
+      const mapDisplay = document.getElementById("mapDisplay");
+      if (mapDisplay) {
+        console.log("New Map Blueprint " +state.clockTime/1000);
+        // Update map display every time mapString changes on server
+        mapDisplay.textContent = buildMapString(state.mapBlueprint, galaxySize.get(state.size) || galaxySize.get("itty")!);
+      }
     });
+
+    function buildMapString(mapBlueprint: OccupiedSpaceState[], size: number): string {
+      const grid: string[][] = Array.from({ length: size }, () =>
+        Array.from({ length: size }, () => "⬛")
+      );
+    
+      const starSet = new Set<number>();
+      const fleetSet = new Set<number>();
+    
+      for (const space of mapBlueprint) {
+        const key = space.y * size + space.x;
+        if (space.type === "s") {
+          starSet.add(key);
+        } else if (space.type === "f") {
+          fleetSet.add(key);
+        }
+      }
+    
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const key = y * size + x;
+          const hasStar = starSet.has(key);
+          const hasFleet = fleetSet.has(key);
+    
+          if (hasStar && hasFleet) {
+            grid[y][x] = "🟥";
+          } else if (hasStar) {
+            grid[y][x] = "🟨";
+          } else if (hasFleet) {
+            grid[y][x] = "🟦";
+          }
+        }
+      }
+    
+      return grid.map(row => row.join("")).join("\n");
+    }
 
     // 5. Handle incoming messages
     room.onMessage("*", (type, data) => {
       console.log(`📨 [${type}]`, data);
-      switch (type) {
-        case "mapData":
-          const mapDisplay = document.getElementById("mapDisplay");
-          if (mapDisplay) mapDisplay.textContent = data.map;
-          break;
-        default:
-          break;
-      }
+
     });
 
     // 6. Handle keyboard input
@@ -87,16 +134,39 @@ if (!window.location.hash || window.location.hash === "#lobby") {
             data = { generationMethod };
             break;
           }
+          case "listFleets": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
+          case "listStars": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
+          case "listEmpires": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
           default:
             break;
         }
-        room.send(instruction, data);
+        console.log(instructionName, data);
+        room.send(instructionName, data);
         messageInput.value = "";
       }
+    });
+    room.onError((err) => {
+      console.error("Room error:", err);
+    });
+    room.onLeave(() => {
+      console.log("❌ Left room");
+      statusEl.textContent = "❌ Left room.";
     });
   }).catch((err: any) => {
     console.error("❌ Failed to join room:", err);
     statusEl.textContent = "❌ Failed to connect.";
   });
+  
 }
-

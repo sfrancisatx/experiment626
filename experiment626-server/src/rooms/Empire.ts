@@ -69,4 +69,23 @@ export class Empire extends Room<EmpireState> {
     setBattlePower(battlePower: number) {
         this.state.battlePower = battlePower;
     }
+    toString(verbose: string = "false"): string {
+        if (verbose === "true") {
+            return "Empire:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Name: " + this.state.name + "\n" +
+            "Owner ID: " + this.state.ownerId + "\n" +
+            "Stars Owned: " + this.starsOwned.length + "\n" +
+            "Wealth: " + this.state.wealth + "\n" +
+            "Research Points: " + this.state.researchPoints + "\n" +
+            "Speed: " + this.state.speed + "\n" +
+            "Range: " + this.state.range + "\n" +
+            "Battle Power: " + this.state.battlePower;
+        } else {
+            return "Empire:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Name: " + this.state.name + "\n" +
+            "Owner ID: " + this.state.ownerId;
+        }
+    }
 }

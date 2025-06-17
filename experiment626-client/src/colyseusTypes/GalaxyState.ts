@@ -5,9 +5,8 @@
 // GENERATED USING @colyseus/schema 3.0.39
 // 
 
-import { Schema, type, ArraySchema, MapSchema, SetSchema } from '@colyseus/schema';
-import type { DataChange } from '@colyseus/schema';
-
+import { Schema, type, ArraySchema, MapSchema, SetSchema, type DataChange } from '@colyseus/schema';
+import { OccupiedSpaceState } from './OccupiedSpaceState'
 
 export class GalaxyState extends Schema {
     @type("number") public clockTime!: number;
@@ -22,4 +21,5 @@ export class GalaxyState extends Schema {
     @type("number") public startingShips!: number;
     @type("string") public vpId!: string;
     @type("string") public size!: string;
+    @type([OccupiedSpaceState]) public mapBlueprint: ArraySchema<OccupiedSpaceState> = new ArraySchema<OccupiedSpaceState>();
 }

@@ -1,4 +1,5 @@
 import { ArraySchema, Schema, type } from "@colyseus/schema";
+import { OccupiedSpaceState } from "../schema/OccupiedSpaceState";
 
 export class GalaxyState extends Schema {
 
@@ -14,4 +15,5 @@ export class GalaxyState extends Schema {
   @type("number") startingShips: number = 0;
   @type("string") vpId: string = "";
   @type("string") size: string = "medium";
+  @type([OccupiedSpaceState]) mapBlueprint: ArraySchema<OccupiedSpaceState> = new ArraySchema<OccupiedSpaceState>();
 }

@@ -5,8 +5,7 @@
 // GENERATED USING @colyseus/schema 3.0.39
 // 
 
-import { Schema, type, ArraySchema, MapSchema, SetSchema } from '@colyseus/schema';
-import type { DataChange } from '@colyseus/schema';
+import { Schema, type, ArraySchema, MapSchema, SetSchema, type DataChange } from '@colyseus/schema';
 
 
 export class EmpireState extends Schema {
