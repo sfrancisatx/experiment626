@@ -56,4 +56,24 @@ export class Star {
     setShipCount(shipCount: number) {
         this.state.shipCount = shipCount;
     }
+    toString(verbose: string = "false"): string {
+        if (verbose === "true") {
+            return "Star:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Name: " + this.state.name + "\n" +
+            "Owner: " + this.state.owner + "\n" +
+            "X: " + this.state.x + "\n" +
+            "Y: " + this.state.y + "\n" +
+            "Wealth Production: " + this.state.wealthProduction + "\n" +
+            "Ship Production: " + this.state.shipProduction + "\n" +
+            "Ship Count: " + this.state.shipCount;
+        } else {
+            return "Star:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Name: " + this.state.name + "\n" +
+            "Owner: " + this.state.owner + "\n" +
+            "X: " + this.state.x + "\n" +
+            "Y: " + this.state.y;
+        }
+    }
 }

@@ -41,4 +41,23 @@ export class Fleet extends Room<FleetState> {
     getEndTime() {
         return this.state.endTime;
     }
+    toString(verbose: string = "false"): string {
+        if (verbose === "true") {
+            return "Fleet:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Owner: " + this.state.owner + "\n" +
+            "Source Star ID: " + this.state.sourceStarId + "\n" +
+            "Destination Star ID: " + this.state.destinationStarId + "\n" +
+            "Ships: " + this.state.ships + "\n" +
+            "Start Time: " + this.state.startTime + "\n" +
+            "End Time: " + this.state.endTime;
+        } else {
+            return "Fleet:\n" + 
+            "ID: " + this.state.id + "\n" +
+            "Owner: " + this.state.owner + "\n" +
+            "Source Star ID: " + this.state.sourceStarId + "\n" +
+            "Destination Star ID: " + this.state.destinationStarId + "\n" +
+            "Ships: " + this.state.ships;
+        }
+    }
 }

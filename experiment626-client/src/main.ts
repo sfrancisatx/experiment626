@@ -9,6 +9,7 @@ const messageInput = document.getElementById("messageInput") as HTMLInputElement
 const sendButton = document.getElementById("sendButton")!;
 const messagesList = document.getElementById("messages")!;
 const galaxySize = new Map<string, number>([
+  ["itty", 100],
   ["small", 1000],
   ["medium", 10000],
   ["large", 15000]
@@ -38,8 +39,9 @@ if (!window.location.hash || window.location.hash === "#lobby") {
     room.onStateChange((state) => {
       const mapDisplay = document.getElementById("mapDisplay");
       if (mapDisplay) {
+        console.log("New Map Blueprint " +state.clockTime/1000);
         // Update map display every time mapString changes on server
-        mapDisplay.textContent = buildMapString(state.mapBlueprint, galaxySize.get(state.size) || galaxySize.get("small")!);
+        mapDisplay.textContent = buildMapString(state.mapBlueprint, galaxySize.get(state.size) || galaxySize.get("itty")!);
       }
     });
 
@@ -132,6 +134,21 @@ if (!window.location.hash || window.location.hash === "#lobby") {
             data = { generationMethod };
             break;
           }
+          case "listFleets": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
+          case "listStars": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
+          case "listEmpires": {
+            let verbose = other;
+            data = { verbose };
+            break;
+          }
           default:
             break;
         }
@@ -139,6 +156,13 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         room.send(instructionName, data);
         messageInput.value = "";
       }
+    });
+    room.onError((err) => {
+      console.error("Room error:", err);
+    });
+    room.onLeave(() => {
+      console.log("❌ Left room");
+      statusEl.textContent = "❌ Left room.";
     });
   }).catch((err: any) => {
     console.error("❌ Failed to join room:", err);

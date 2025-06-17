@@ -24,6 +24,7 @@ interface createOptions {
 }
 
 const galaxySize = new Map<string, number>([
+    ["itty", 100],
     ["small", 1000],
     ["medium", 10000],
     ["large", 15000]
@@ -37,13 +38,13 @@ export class Galaxy extends Room<GalaxyState> {
     onCreate(options: createOptions) {
         console.log("Galaxy created");
         this.state = new GalaxyState();
-        this.state.startingResearchPoints = options.startingResearchPoints;
-        this.state.startingSpeed = options.startingSpeed;
-        this.state.startingRange = options.startingRange;
-        this.state.startingBattlePower = options.startingBattlePower;
-        this.state.startingWealth = options.startingWealth;
-        this.state.startingStars = options.startingStars;
-        this.state.startingShips = options.startingShips;
+        this.state.startingResearchPoints = options.startingResearchPoints || 0;
+        this.state.startingSpeed = options.startingSpeed || 1;
+        this.state.startingRange = options.startingRange || 1000;
+        this.state.startingBattlePower = options.startingBattlePower || 1;
+        this.state.startingWealth = options.startingWealth || 1000;
+        this.state.startingStars = options.startingStars || 1;
+        this.state.startingShips = options.startingShips || 100;
         this.state.id = options.id;
         this.state.size = options.size;
         this.state.mapBlueprint = new ArraySchema<OccupiedSpaceState>();
@@ -65,13 +66,19 @@ export class Galaxy extends Room<GalaxyState> {
                     this.destroyFleet(data.id);
                     break;
                 case "listFleets":
-                    console.log(this.fleetList);
+                    this.fleetList.forEach((fleet: Fleet) => {
+                        console.log(fleet.toString(data.verbose));
+                    });
                     break;
                 case "listStars":
-                    console.log(this.starList);
+                    this.starList.forEach((star: Star) => {
+                        console.log(star.toString(data.verbose));
+                    });
                     break;
                 case "listEmpires":
-                    console.log(this.empireList);
+                    this.empireList.forEach((empire: Empire) => {
+                        console.log(empire.toString(data.verbose));
+                    });
                     break;
                 case "listPlayers":
                     console.log(this.state.playerIdList);
@@ -112,11 +119,11 @@ export class Galaxy extends Room<GalaxyState> {
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
                     console.error("Invalid galaxy size");
-                    gsize = galaxySize.get("small")!;
-                    this.state.size = "small";
+                    gsize = galaxySize.get("itty")!;
+                    this.state.size = "itty";
                 }
-                for (let i = 50; i < gsize; i+= 50) {
-                    for (let j = 50; j < gsize; j+= 50) {
+                for (let i = 10; i < gsize; i+= 10) {
+                    for (let j = 10; j < gsize; j+= 10) {
                         this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 100, 0));
                     }
                 }
@@ -126,7 +133,8 @@ export class Galaxy extends Room<GalaxyState> {
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
                     console.error("Invalid galaxy size");
-                    gsize = galaxySize.get("small")!;
+                    gsize = galaxySize.get("itty")!;
+                    this.state.size = "itty";
                 }
                 for (let i = 0; i < gsize/10; i++) {
                     var x: number = Math.round(Math.random() * gsize);
@@ -134,7 +142,7 @@ export class Galaxy extends Room<GalaxyState> {
                     var notTooClose: boolean = true;
                     for (let j = 0; j < this.starList.length; j++) {
                         var distance = Math.sqrt(Math.pow(x - this.starList[j].getX(), 2) + Math.pow(y - this.starList[j].getY(), 2));
-                        if (distance < 10) {
+                        if (distance < 5) {
                             notTooClose = false;
                             i--;
                         }
@@ -154,6 +162,9 @@ export class Galaxy extends Room<GalaxyState> {
             occupiedSpaceState.x = star.getX();
             occupiedSpaceState.y = star.getY();
             occupiedSpaceState.type = "s";
+            if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
+                console.error("❌ NaN found! " + star.getX() + "," + star.getY());
+              }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
         this.fleetList.forEach((fleet: Fleet) => {
@@ -162,6 +173,9 @@ export class Galaxy extends Room<GalaxyState> {
             occupiedSpaceState.x = coords.x;
             occupiedSpaceState.y = coords.y;
             occupiedSpaceState.type = "f";
+            if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
+                console.error("❌ NaN found! " + coords.x + "," + coords.y);
+              }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
 
@@ -186,8 +200,8 @@ export class Galaxy extends Room<GalaxyState> {
             console.error("Source or destination star not found");
             return {x: x, y: y};
         }
-        x = sourceStar.getX() + (destinationStar.getX() - sourceStar.getX()) * percentDone;
-        y = sourceStar.getY() + (destinationStar.getY() - sourceStar.getY()) * percentDone;
+        x = Math.round(sourceStar.getX() + (destinationStar.getX() - sourceStar.getX()) * percentDone);
+        y = Math.round(sourceStar.getY() + (destinationStar.getY() - sourceStar.getY()) * percentDone);
         return {x: x, y: y};
     }
     assignCoreStars() {
@@ -233,7 +247,7 @@ export class Galaxy extends Room<GalaxyState> {
             console.error("Empire of Fleet not found");
             return clockTime + distance;
         }
-        return clockTime + distance / fleetEmpire.getSpeed()
+        return clockTime + distance*1000 / fleetEmpire.getSpeed();
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, owner: string) {
         this.fleetList.push(new Fleet(new FleetState(), this, this.idGenerator(), owner, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), owner)));
@@ -272,7 +286,9 @@ export class Galaxy extends Room<GalaxyState> {
                 return empire.getOwnerId() === star.getOwner();
             })
             if (!defenders) {
-                console.error("Defender Empire not found");
+                star.setShipCount(fleet.getShips());
+                this.destroyFleet(fleet.getId());
+                star.setOwner(fleet.getOwner());
                 return;
             }
             var defendersBattlePower = defenders.getBattlePower();
