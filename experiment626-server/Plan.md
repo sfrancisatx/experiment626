@@ -18,14 +18,17 @@ Empires
 - StarsOwned: Star[]
     - Add/Remove Star Methods
 - Wealth: Number
-- ResearchPoints: Number
-- FactoryCost
-- SpeedCost
-- RangeCost
-- BattlePowerCost
+- FactoryCost: Fixed cost, doesn't change
+- SpeedCost: Fixed cost, doesn't change
+- RangeCost: Fixed cost, doesn't change
+- BattlePowerCost: Fixed cost, doesn't change
 Players
 
-
+Factory
+-Produces 1 Ship every Turn
+Turn
+-Usually 24 hours, customizable?
+-Going to have to scale speeds to turn time
 Fleet
 - Fleets Contain Ships
 - Fleets move, not Ships

@@ -4,17 +4,20 @@ import { Star } from "./Star";
 
 export class Empire extends Room<EmpireState> {
     starsOwned: Star[] = [];
-    constructor(public state: EmpireState, id: string, name: string, ownerId: string, starsOwned: Star[], wealth: number, researchPoints: number, speed: number, range: number, battlePower: number) {
+    constructor(public state: EmpireState, id: string, name: string, ownerId: string, starsOwned: Star[], wealth: number, factoryCost: number, speed: number, range: number, battlePower: number, speedCost: number, rangeCost: number, battlePowerCost: number) {
         super();
         this.state.id = id;
         this.state.name = name;
         this.state.ownerId = ownerId;
         this.state.wealth = wealth;
-        this.state.researchPoints = researchPoints;
+        this.state.factoryCost = factoryCost;
         this.state.speed = speed;
         this.state.range = range;
         this.state.battlePower = battlePower;
         this.starsOwned = starsOwned;
+        this.state.speedCost = speedCost;
+        this.state.rangeCost = rangeCost;
+        this.state.battlePowerCost = battlePowerCost;
     }
     getId() {
         return this.state.id;
@@ -32,8 +35,8 @@ export class Empire extends Room<EmpireState> {
     getWealth() {
         return this.state.wealth;
     }
-    getResearchPoints() {
-        return this.state.researchPoints;
+    getFactoryCost() {
+        return this.state.factoryCost;
     }
     getSpeed() {
         return this.state.speed;
@@ -43,6 +46,15 @@ export class Empire extends Room<EmpireState> {
     }
     getBattlePower() {
         return this.state.battlePower;
+    }
+    getSpeedCost() {
+        return this.state.speedCost;
+    }
+    getRangeCost() {
+        return this.state.rangeCost;
+    }
+    getBattlePowerCost() {
+        return this.state.battlePowerCost;
     }
     setName(name: string) {
         this.state.name = name;
@@ -57,8 +69,8 @@ export class Empire extends Room<EmpireState> {
     setWealth(wealth: number) {
         this.state.wealth = wealth;
     }
-    setResearchPoints(researchPoints: number) {
-        this.state.researchPoints = researchPoints;
+    setFactoryCost(factoryCost: number) {
+        this.state.factoryCost = factoryCost;
     }
     setSpeed(speed: number) {
         this.state.speed = speed;
@@ -69,6 +81,15 @@ export class Empire extends Room<EmpireState> {
     setBattlePower(battlePower: number) {
         this.state.battlePower = battlePower;
     }
+    setSpeedCost(speedCost: number) {
+        this.state.speedCost = speedCost;
+    }
+    setRangeCost(rangeCost: number) {
+        this.state.rangeCost = rangeCost;
+    }
+    setBattlePowerCost(battlePowerCost: number) {
+        this.state.battlePowerCost = battlePowerCost;
+    }
     toString(verbose: string = "false"): string {
         if (verbose === "true") {
             return "Empire:\n" + 
@@ -77,7 +98,6 @@ export class Empire extends Room<EmpireState> {
             "Owner ID: " + this.state.ownerId + "\n" +
             "Stars Owned: " + this.starsOwned.length + "\n" +
             "Wealth: " + this.state.wealth + "\n" +
-            "Research Points: " + this.state.researchPoints + "\n" +
             "Speed: " + this.state.speed + "\n" +
             "Range: " + this.state.range + "\n" +
             "Battle Power: " + this.state.battlePower;

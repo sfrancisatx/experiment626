@@ -15,6 +15,6 @@ export class StarState extends Schema {
     @type("number") public x!: number;
     @type("number") public y!: number;
     @type("number") public wealthProduction!: number;
-    @type("number") public shipProduction!: number;
+    @type("number") public factoryCount!: number;
     @type("number") public shipCount!: number;
 }

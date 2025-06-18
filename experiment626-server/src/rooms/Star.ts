@@ -1,14 +1,14 @@
 import { StarState } from "./schema/StarState";
 
 export class Star {
-    constructor(public state: StarState, id: string, name: string, owner: string, x: number, y: number, wealthProduction: number, shipProduction: number, shipCount: number) {
+    constructor(public state: StarState, id: string, name: string, owner: string, x: number, y: number, wealthProduction: number, factoryCount: number, shipCount: number) {
         this.state.id = id;
         this.state.name = name;
         this.state.owner = owner;
         this.state.x = x;
         this.state.y = y;
         this.state.wealthProduction = wealthProduction;
-        this.state.shipProduction = shipProduction;
+        this.state.factoryCount = factoryCount;
         this.state.shipCount = shipCount;
     }
     getId() {
@@ -29,8 +29,8 @@ export class Star {
     getWealthProduction() {
         return this.state.wealthProduction;
     }
-    getShipProduction() {
-        return this.state.shipProduction;
+    getFactoryCount() {
+        return this.state.factoryCount;
     }
     getShipCount() {
         return this.state.shipCount;
@@ -50,8 +50,8 @@ export class Star {
     setWealthProduction(wealthProduction: number) {
         this.state.wealthProduction = wealthProduction;
     }
-    setShipProduction(shipProduction: number) {
-        this.state.shipProduction = shipProduction;
+    setFactoryCount(factoryCount: number) {
+        this.state.factoryCount = factoryCount;
     }
     setShipCount(shipCount: number) {
         this.state.shipCount = shipCount;
@@ -65,7 +65,7 @@ export class Star {
             "X: " + this.state.x + "\n" +
             "Y: " + this.state.y + "\n" +
             "Wealth Production: " + this.state.wealthProduction + "\n" +
-            "Ship Production: " + this.state.shipProduction + "\n" +
+            "Factory Count: " + this.state.factoryCount + "\n" +
             "Ship Count: " + this.state.shipCount;
         } else {
             return "Star:\n" + 

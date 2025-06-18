@@ -12,13 +12,16 @@ export class GalaxyState extends Schema {
     @type("number") public clockTime!: number;
     @type("string") public id!: string;
     @type([ "string" ]) public playerIdList: ArraySchema<string> = new ArraySchema<string>();
-    @type("number") public startingResearchPoints!: number;
     @type("number") public startingSpeed!: number;
     @type("number") public startingRange!: number;
     @type("number") public startingBattlePower!: number;
     @type("number") public startingWealth!: number;
     @type("number") public startingStars!: number;
     @type("number") public startingShips!: number;
+    @type("number") public factoryCost!: number;
+    @type("number") public startingSpeedCost!: number;
+    @type("number") public startingRangeCost!: number;
+    @type("number") public startingBattlePowerCost!: number;
     @type("string") public vpId!: string;
     @type("string") public size!: string;
     @type([OccupiedSpaceState]) public mapBlueprint: ArraySchema<OccupiedSpaceState> = new ArraySchema<OccupiedSpaceState>();
