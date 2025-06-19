@@ -3,8 +3,7 @@ import { Room } from "@colyseus/core";
 import { Star } from "./Star";
 
 export class Empire extends Room<EmpireState> {
-    starsOwned: Star[] = [];
-    constructor(public state: EmpireState, id: string, name: string, ownerId: string, starsOwned: Star[], wealth: number, factoryCost: number, speed: number, range: number, battlePower: number, speedCost: number, rangeCost: number, battlePowerCost: number) {
+    constructor(public state: EmpireState, id: string, name: string, ownerId: string, wealth: number, factoryCost: number, speed: number, range: number, battlePower: number, speedCost: number, rangeCost: number, battlePowerCost: number) {
         super();
         this.state.id = id;
         this.state.name = name;
@@ -14,7 +13,6 @@ export class Empire extends Room<EmpireState> {
         this.state.speed = speed;
         this.state.range = range;
         this.state.battlePower = battlePower;
-        this.starsOwned = starsOwned;
         this.state.speedCost = speedCost;
         this.state.rangeCost = rangeCost;
         this.state.battlePowerCost = battlePowerCost;
@@ -27,10 +25,6 @@ export class Empire extends Room<EmpireState> {
     }
     getOwnerId() {
         return this.state.ownerId;
-    }
-    getStarsOwned() {
-        var passingStarsOwned = this.starsOwned;
-        return passingStarsOwned;
     }
     getWealth() {
         return this.state.wealth;
@@ -62,10 +56,6 @@ export class Empire extends Room<EmpireState> {
     setOwnerId(ownerId: string) {
         this.state.ownerId = ownerId;
     }
-    setStarsOwned(starsOwned: Star[]) {
-        var tempStarsOwned = starsOwned;
-        this.starsOwned = tempStarsOwned;
-    }
     setWealth(wealth: number) {
         this.state.wealth = wealth;
     }
@@ -92,19 +82,16 @@ export class Empire extends Room<EmpireState> {
     }
     toString(verbose: string = "false"): string {
         if (verbose === "true") {
-            return "Empire:\n" + 
+            return "Name: " + this.state.name + "\n" + 
             "ID: " + this.state.id + "\n" +
-            "Name: " + this.state.name + "\n" +
             "Owner ID: " + this.state.ownerId + "\n" +
-            "Stars Owned: " + this.starsOwned.length + "\n" +
             "Wealth: " + this.state.wealth + "\n" +
             "Speed: " + this.state.speed + "\n" +
             "Range: " + this.state.range + "\n" +
             "Battle Power: " + this.state.battlePower;
         } else {
-            return "Empire:\n" + 
+            return "Name: " + this.state.name + "\n" + 
             "ID: " + this.state.id + "\n" +
-            "Name: " + this.state.name + "\n" +
             "Owner ID: " + this.state.ownerId;
         }
     }

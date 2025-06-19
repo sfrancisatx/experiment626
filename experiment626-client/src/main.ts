@@ -15,13 +15,9 @@ const galaxySize = new Map<string, number>([
   ["large", 15000]
 ]);
 
-interface occupiedSpace {
-    x: number;
-    y: number;
-    type: string;
-}
-
 // 1. Connect to the Colyseus server
+let sessionId = "";
+let empireId = "";
 const client = new Client("ws://localhost:5111");
 
 // Routing: show landing page or game UI based on URL hash
@@ -39,24 +35,23 @@ if (!window.location.hash || window.location.hash === "#lobby") {
     room.onStateChange((state) => {
       const mapDisplay = document.getElementById("mapDisplay");
       if (mapDisplay) {
-        console.log("New Map Blueprint " +state.clockTime/1000);
         // Update map display every time mapString changes on server
-        mapDisplay.textContent = buildMapString(state.mapBlueprint, galaxySize.get(state.size) || galaxySize.get("itty")!);
+        mapDisplay.textContent = buildMapString(state.mapBlueprint, galaxySize.get(state.size) || galaxySize.get("itty")!, empireId);
       }
     });
 
-    function buildMapString(mapBlueprint: OccupiedSpaceState[], size: number): string {
+    function buildMapString(mapBlueprint: OccupiedSpaceState[], size: number, playerEmpireId: string): string {
       const grid: string[][] = Array.from({ length: size }, () =>
         Array.from({ length: size }, () => "⬛")
       );
     
-      const starSet = new Set<number>();
+      const starMap = new Map<number, OccupiedSpaceState>();
       const fleetSet = new Set<number>();
     
       for (const space of mapBlueprint) {
         const key = space.y * size + space.x;
         if (space.type === "s") {
-          starSet.add(key);
+          starMap.set(key, space); // store entire star object to check ownership
         } else if (space.type === "f") {
           fleetSet.add(key);
         }
@@ -65,13 +60,14 @@ if (!window.location.hash || window.location.hash === "#lobby") {
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           const key = y * size + x;
-          const hasStar = starSet.has(key);
+          const hasStar = starMap.has(key);
           const hasFleet = fleetSet.has(key);
     
           if (hasStar && hasFleet) {
             grid[y][x] = "🟥";
           } else if (hasStar) {
-            grid[y][x] = "🟨";
+            const star = starMap.get(key)!;
+            grid[y][x] = star.owner === playerEmpireId ? "🟩" : "🟨";
           } else if (hasFleet) {
             grid[y][x] = "🟦";
           }
@@ -79,18 +75,26 @@ if (!window.location.hash || window.location.hash === "#lobby") {
       }
     
       return grid.map(row => row.join("")).join("\n");
-    }
+    }    
 
     // 5. Handle incoming messages
     room.onMessage("*", (type, data) => {
       console.log(`📨 [${type}]`, data);
-
+      switch (type) {
+        case "yourIDs": {
+          sessionId = data.Id;
+          empireId = data.empireId;
+          break;
+        }
+        default:
+          break;
+      }
     });
 
     // 6. Handle keyboard input
     document.addEventListener("keydown", (e) => {
       if (e.key === "p") {
-        room.send("printMap", {});
+        
       }
     });
 
@@ -121,32 +125,63 @@ if (!window.location.hash || window.location.hash === "#lobby") {
             let idx = other.indexOf(".");
             let id = other.substring(0, idx);
             let name = other.substring(idx + 1);
-            data = { id, name };
+            data = { id: id, name: name };
             break;
           }
           case "destroyFleet": {
             let id = other;
-            data = { id };
+            data = { id: id };
             break;
           }
           case "init": {
             let generationMethod = other;
-            data = { generationMethod };
+            data = { generationMethod: generationMethod };
             break;
           }
           case "listFleets": {
             let verbose = other;
-            data = { verbose };
+            data = { verbose: verbose };
             break;
           }
           case "listStars": {
             let verbose = other;
-            data = { verbose };
+            data = { verbose: verbose };
             break;
           }
           case "listEmpires": {
             let verbose = other;
-            data = { verbose };
+            data = { verbose: verbose };
+            break;
+          }
+          case "sendFleet": {
+            let idx1 = other.indexOf(".");
+            let sourceStarId = other.substring(0, idx1);
+            let other2 = other.substring(idx1 + 1);
+            let idx2 = other2.indexOf(".");
+            let destinationStarId = other2.substring(0, idx2);
+            let ships = parseInt(other2.substring(idx2 + 1));
+            data = { sourceStarId: sourceStarId, destinationStarId: destinationStarId, ships: ships };
+            break;
+          }
+          case "buildFactory": {
+            let id = other;
+            data = { starId: id };
+            break;
+          }
+          case "sendWealth": {
+            let idx = other.indexOf(".");
+            let amount = parseInt(other.substring(0, idx));
+            let targetId = other.substring(idx + 1);
+            data = { amount: amount, targetId: targetId };
+            break;
+          }
+          case "listStarsInRange": {
+            data = { starId: other };
+            break;
+          }
+          case "addClockTime": {
+            let amount = parseInt(other);
+            data = { amount: amount };
             break;
           }
           default:

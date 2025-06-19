@@ -43,7 +43,7 @@ export class Fleet extends Room<FleetState> {
     }
     toString(verbose: string = "false"): string {
         if (verbose === "true") {
-            return "Fleet:\n" + 
+            return "A Fleet in Space:\n" + 
             "ID: " + this.state.id + "\n" +
             "Owner: " + this.state.owner + "\n" +
             "Source Star ID: " + this.state.sourceStarId + "\n" +
@@ -52,7 +52,7 @@ export class Fleet extends Room<FleetState> {
             "Start Time: " + this.state.startTime + "\n" +
             "End Time: " + this.state.endTime;
         } else {
-            return "Fleet:\n" + 
+            return "A Fleet in Space:\n" + 
             "ID: " + this.state.id + "\n" +
             "Owner: " + this.state.owner + "\n" +
             "Source Star ID: " + this.state.sourceStarId + "\n" +

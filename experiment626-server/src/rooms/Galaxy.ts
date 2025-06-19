@@ -26,6 +26,8 @@ interface createOptions {
 }
 
 const pixelsPerLightYear = 1;
+const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds
+const startingRange = 17;
 
 const galaxySize = new Map<string, number>([
     ["itty", 100],
@@ -39,11 +41,13 @@ export class Galaxy extends Room<GalaxyState> {
     starList: Star[] = [];
     empireList: Empire[] = [];
     idCounter: number = 0;
+    skipToNextTurn: boolean = false;
+    nextTurnTime: number = hoursPerTurn * 60 * 60 * 1000;
     onCreate(options: createOptions) {
         console.log("Galaxy created");
         this.state = new GalaxyState();
         this.state.startingSpeed = options.startingSpeed || 1;
-        this.state.startingRange = options.startingRange || 1000;
+        this.state.startingRange = options.startingRange || startingRange;
         this.state.startingBattlePower = options.startingBattlePower || 1;
         this.state.startingWealth = options.startingWealth || 1000;
         this.state.startingStars = options.startingStars || 1;
@@ -124,6 +128,15 @@ export class Galaxy extends Room<GalaxyState> {
                 case "sendWealth":
                     this.sendWealth(data.amount, client.sessionId, data.targetId);
                     break;
+                case "nextTurn":
+                    this.skipToNextTurn = true;
+                    break;
+                case "listStarsInRange":
+                    this.listStarsInRange(data.starId, client.sessionId);
+                    break;
+                case "addClockTime":
+                    this.state.clockTime += data.amount;
+                    break;
                 default:
                     console.warn("Gibberish in the message " + type + " " + data);
                     break;
@@ -131,10 +144,36 @@ export class Galaxy extends Room<GalaxyState> {
         });
         this.setSimulationInterval((deltaTime: number) => {
             this.state.clockTime += deltaTime;
+            if (this.skipToNextTurn) {
+                this.skipToNextTurn = false;
+                this.state.clockTime += (hoursPerTurn * 60 * 60 * 1000) - (this.state.clockTime % (hoursPerTurn * 60 * 60 * 1000));
+            }
             this.fleetList.forEach((fleet: Fleet) => {
                 fleet.update(this.state.clockTime);
             });
+            while (this.state.clockTime >= this.nextTurnTime) {
+                this.turn();
+                console.log("Turn at " + this.state.clockTime / 1000);
+                this.nextTurnTime += hoursPerTurn * 60 * 60 * 1000;
+            }
             this.printMap();
+        });
+    }
+    turn() {
+        // Allocating the new ships to stars
+        this.starList.forEach((star: Star) => {
+            star.setShipCount(star.getShipCount()+ star.getFactoryCount());
+        });
+        // Generating wealth for each empire
+        this.empireList.forEach((empire: Empire) => {
+            var starsOwned = this.starList.filter((star: Star) => {
+                return star.getOwner() === empire.getId();
+            });
+            var wealthGenerated = 0;
+            starsOwned.forEach((star: Star) => {
+                wealthGenerated += star.getWealthProduction();
+            });
+            empire.setWealth(empire.getWealth() + wealthGenerated);
         });
     }
     initGalaxy(generationMethod: string) {
@@ -149,7 +188,7 @@ export class Galaxy extends Room<GalaxyState> {
                 }
                 for (let i = 10; i < gsize; i+= 10) {
                     for (let j = 10; j < gsize; j+= 10) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 100, 0));
+                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 0, 0));
                     }
                 }
                 this.assignCoreStars();
@@ -161,7 +200,7 @@ export class Galaxy extends Room<GalaxyState> {
                     gsize = galaxySize.get("itty")!;
                     this.state.size = "itty";
                 }
-                for (let i = 0; i < gsize/10; i++) {
+                for (let i = 0; i < gsize/5; i++) {
                     var x: number = Math.round(Math.random() * gsize);
                     var y: number = Math.round(Math.random() * gsize);
                     var notTooClose: boolean = true;
@@ -173,7 +212,7 @@ export class Galaxy extends Room<GalaxyState> {
                         }
                     }
                     if (notTooClose) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 100, 0));
+                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 0, 0));
                     }
                 }
                 this.assignCoreStars();
@@ -186,6 +225,9 @@ export class Galaxy extends Room<GalaxyState> {
             const occupiedSpaceState = new OccupiedSpaceState();
             occupiedSpaceState.x = star.getX();
             occupiedSpaceState.y = star.getY();
+            if (star.getOwner()) {
+                occupiedSpaceState.owner = star.getOwner();
+            }
             occupiedSpaceState.type = "s";
             if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
                 console.error("❌ NaN found! " + star.getX() + "," + star.getY());
@@ -230,24 +272,17 @@ export class Galaxy extends Room<GalaxyState> {
         return {x: x, y: y};
     }
     assignCoreStars() {
-        this.state.playerIdList.forEach((playerId: string) => {
+        this.empireList.forEach((empire: Empire) => {
             var foundStar: boolean = false;
             while (foundStar === false) {
                 var randomstar = this.starList[Math.floor(Math.random() * this.starList.length)];
                 if (!randomstar) {
-                    console.error("Random star not found");
+                    console.error("Random star not found: Assigning core stars");
                     break;
                 }
                 if (!randomstar.getOwner()) {
                     foundStar = true;
-                    randomstar.setOwner(playerId);
-                    this.empireList.find((empire: Empire) => {
-                        if (empire.getOwnerId() === playerId) {
-                            var newStarsOwned: Star[] = empire.getStarsOwned();
-                            newStarsOwned.push(randomstar);
-                            empire.setStarsOwned(newStarsOwned);
-                        }
-                    });
+                    randomstar.setOwner(empire.getId());
                 }
             }
         });
@@ -272,7 +307,7 @@ export class Galaxy extends Room<GalaxyState> {
             console.error("Empire of Fleet not found");
             return clockTime + distance;
         }
-        return (clockTime/1000 + distance/pixelsPerLightYear / fleetEmpire.getSpeed())*1000;
+        return clockTime + distance/startingRange * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.getSpeed() + 9) / 10);
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, clientId: string) {
         var empire = this.empireList.find((empire: Empire) => {
@@ -610,14 +645,51 @@ export class Galaxy extends Room<GalaxyState> {
         }
         targetEmpire.setWealth(targetEmpire.getWealth() + amount);
     }
+    listStarsInRange(starId: string, clientId: string) {
+        var clientEmpire = this.empireList.find((empire: Empire) => {
+            if (empire.getOwnerId() === clientId) {
+                return true;
+            }
+            return false;
+        });
+        if (!clientEmpire) {
+            console.error("Client empire not found");
+            return;
+        }
+        var range = clientEmpire.getRange();
+        var star = this.starList.find((star: Star) => {
+            if (star.getId() === starId) {
+                return true;
+            }
+            return false;
+        });
+        if (!star) {
+            console.error("Star not found");
+            return;
+        }
+        var starX = star.getX();
+        var starY = star.getY();
+        var starsInRange = this.starList.filter((star2: Star) => {
+            if (star2.getId() === starId) {
+                return false;
+            }
+            var distance = Math.sqrt(Math.pow(starX - star2.getX(), 2) + Math.pow(starY - star2.getY(), 2));
+            console.log(star2.getId() + ": " + distance);
+            return distance <= range;
+        });
+        starsInRange.forEach((star: Star) => {
+            console.log(star.toString());
+        });
+    }
     onJoin(client: Client, options: {empireName: string}) {
         this.state.playerIdList.push(client.sessionId);
         if (options.empireName) {
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, [], this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
         }
         else {
             console.error("No empire name provided");
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, [], this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
         }
+        client.send("yourIDs", {Id: client.sessionId, empireId: this.empireList[this.empireList.length - 1].getId()});
     }
 }

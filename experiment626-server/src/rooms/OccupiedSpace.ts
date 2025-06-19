@@ -7,6 +7,7 @@ export class OccupiedSpace extends Room<OccupiedSpaceState> {
         this.state.x = x;
         this.state.y = y;
         this.state.type = type;
+        this.state.owner = "";
     }
     get getX() {
         return this.state.x;
@@ -19,5 +20,11 @@ export class OccupiedSpace extends Room<OccupiedSpaceState> {
     }
     getState() {
         return this.state;
+    }
+    get getOwner() {
+        if (this.state.owner) {
+            return this.state.owner;
+        }
+        return "";
     }
 }

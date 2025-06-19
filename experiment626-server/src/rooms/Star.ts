@@ -58,9 +58,8 @@ export class Star {
     }
     toString(verbose: string = "false"): string {
         if (verbose === "true") {
-            return "Star:\n" + 
+            return "Name: " + this.state.name + "\n" + 
             "ID: " + this.state.id + "\n" +
-            "Name: " + this.state.name + "\n" +
             "Owner: " + this.state.owner + "\n" +
             "X: " + this.state.x + "\n" +
             "Y: " + this.state.y + "\n" +
@@ -68,9 +67,8 @@ export class Star {
             "Factory Count: " + this.state.factoryCount + "\n" +
             "Ship Count: " + this.state.shipCount;
         } else {
-            return "Star:\n" + 
+            return "Name: " + this.state.name + "\n" + 
             "ID: " + this.state.id + "\n" +
-            "Name: " + this.state.name + "\n" +
             "Owner: " + this.state.owner + "\n" +
             "X: " + this.state.x + "\n" +
             "Y: " + this.state.y;

@@ -12,4 +12,5 @@ export class OccupiedSpaceState extends Schema {
     @type("number") public x!: number;
     @type("number") public y!: number;
     @type("string") public type!: string;
+    @type("string") public owner?: string;
 }
