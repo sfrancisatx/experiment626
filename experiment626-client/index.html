@@ -9,7 +9,35 @@
   <body>
     <div id="app">
       <div id="status">🔌 Connecting...</div>
-
+      <div id="commandPanel" style="margin-top: 1rem;">
+        <label for="commandSelect">Choose command:</label>
+        <select id="commandSelect">
+          <option value="">--Select a command--</option>
+          <option value="createFleet">createFleet</option>
+          <option value="renameStar">renameStar</option>
+          <option value="destroyFleet">destroyFleet</option>
+          <option value="listFleets">listFleets</option>
+          <option value="listStars">listStars</option>
+          <option value="listEmpires">listEmpires</option>
+          <option value="listPlayers">listPlayers</option>
+          <option value="listClockTime">listClockTime</option>
+          <option value="listVP">listVP</option>
+          <option value="init">init</option>
+          <option value="printMap">printMap</option>
+          <option value="sendFleet">sendFleet</option>
+          <option value="buildFactory">buildFactory</option>
+          <option value="upgradeSpeed">upgradeSpeed</option>
+          <option value="upgradeRange">upgradeRange</option>
+          <option value="upgradeBattlePower">upgradeBattlePower</option>
+          <option value="sendWealth">sendWealth</option>
+          <option value="nextTurn">nextTurn</option>
+          <option value="listStarsInRange">listStarsInRange</option>
+          <option value="addClockTime">addClockTime</option>
+        </select>
+      
+        <div id="commandInputs" style="margin-top: 0.5rem;"></div>
+        <button id="sendCommandButton">Send Command</button>
+      </div>
       <div style="margin-top: 1rem;">
         <input id="messageInput" type="text" placeholder="Type a message..." />
         <button id="sendButton">Send</button>

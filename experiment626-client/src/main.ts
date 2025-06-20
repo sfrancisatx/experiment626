@@ -8,6 +8,27 @@ const statusEl = document.getElementById("status")!;
 const messageInput = document.getElementById("messageInput") as HTMLInputElement;
 const sendButton = document.getElementById("sendButton")!;
 const messagesList = document.getElementById("messages")!;
+const commandSelect = document.getElementById("commandSelect") as HTMLSelectElement;
+const commandInputs = document.getElementById("commandInputs") as HTMLDivElement;
+const sendCommandButton = document.getElementById("sendCommandButton") as HTMLButtonElement;
+
+// Define the parameter structure for each command
+const commandParams: Record<string, string[]> = {
+  createFleet: ["sourceStarId", "destinationStarId", "ships"],
+  renameStar: ["id", "name"],
+  destroyFleet: ["id"],
+  listFleets: ["verbose"],
+  listStars: ["verbose"],
+  listEmpires: ["verbose"],
+  sendFleet: ["sourceStarId", "destinationStarId", "ships"],
+  buildFactory: ["starId"],
+  sendWealth: ["amount", "targetId"],
+  init: ["generationMethod"],
+  listStarsInRange: ["starId"],
+  addClockTime: ["amount"]
+  // other commands take no parameters
+};
+
 const galaxySize = new Map<string, number>([
   ["itty", 100],
   ["small", 1000],
@@ -96,6 +117,37 @@ if (!window.location.hash || window.location.hash === "#lobby") {
       if (e.key === "p") {
         
       }
+    });
+
+    // The Dropdown Selector
+    commandSelect.addEventListener("change", () => {
+      const selected = commandSelect.value;
+      commandInputs.innerHTML = "";
+    
+      const params = commandParams[selected] || [];
+      for (const param of params) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = param;
+        input.name = param;
+        commandInputs.appendChild(input);
+      }
+    });
+    
+    sendCommandButton.addEventListener("click", () => {
+      const command = commandSelect.value;
+      if (!command) return;
+    
+      const inputs = commandInputs.querySelectorAll("input");
+      const data: Record<string, any> = {};
+      inputs.forEach(input => {
+        const name = input.name;
+        let value: any = input.value;
+        if (!isNaN(Number(value))) value = Number(value); // cast number if applicable
+        data[name] = value;
+      });
+    
+      room.send(command, data); // assuming `room` is your active Colyseus room
     });
 
     // 7. Handle UI input for chat/messages
