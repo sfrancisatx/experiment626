@@ -62,9 +62,7 @@ export class Galaxy extends Room<GalaxyState> {
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
-        //Must insantiate all player ids
-        //Must instantiate all stars
-        //
+        this.nextTurnTime = this.state.clockTime + hoursPerTurn * 60 * 60 * 1000;
         this.onMessage("*", (client: Client, type: string | number, data: any) => {
             switch (type) {
                 case "createFleet":
