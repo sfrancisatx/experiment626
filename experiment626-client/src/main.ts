@@ -11,7 +11,13 @@ const messagesList = document.getElementById("messages")!;
 const commandSelect = document.getElementById("commandSelect") as HTMLSelectElement;
 const commandInputs = document.getElementById("commandInputs") as HTMLDivElement;
 const sendCommandButton = document.getElementById("sendCommandButton") as HTMLButtonElement;
-
+const debugPanel1 = document.getElementById("debugPanel1")!;
+const debugText1 = document.getElementById("debugDisplay1")!;
+const debugPanel2 = document.getElementById("debugPanel2")!;
+const debugText2 = document.getElementById("debugDisplay2")!;
+const debugPanel3 = document.getElementById("debugPanel3")!;
+const debugText3 = document.getElementById("debugDisplay3")!;
+let showDebug = true; //SHOWS LIST OF STARS AND FLEETS ON THE SIDE
 // Define the parameter structure for each command
 const commandParams: Record<string, string[]> = {
   createFleet: ["sourceStarId", "destinationStarId", "ships"],
@@ -27,6 +33,50 @@ const commandParams: Record<string, string[]> = {
   listStarsInRange: ["starId"],
   addClockTime: ["amount"]
   // other commands take no parameters
+};
+const commandParamTypes: Record<string, Record<string, "string" | "number">> = {
+  createFleet: {
+    sourceStarId: "string",
+    destinationStarId: "string",
+    ships: "number"
+  },
+  renameStar: {
+    id: "string",
+    name: "string"
+  },
+  destroyFleet: {
+    id: "string"
+  },
+  listFleets: {
+    verbose: "string"
+  },
+  listStars: {
+    verbose: "string"
+  },
+  listEmpires: {
+    verbose: "string"
+  },
+  sendFleet: {
+    sourceStarId: "string",
+    destinationStarId: "string",
+    ships: "number"
+  },
+  buildFactory: {
+    starId: "string"
+  },
+  sendWealth: {
+    amount: "number",
+    targetId: "string"
+  },
+  init: {
+    generationMethod: "string"
+  },
+  listStarsInRange: {
+    starId: "string"
+  },
+  addClockTime: {
+    amount: "number"
+  }
 };
 
 const galaxySize = new Map<string, number>([
@@ -119,6 +169,8 @@ if (!window.location.hash || window.location.hash === "#lobby") {
       }
     });
 
+    
+
     // The Dropdown Selector
     commandSelect.addEventListener("change", () => {
       const selected = commandSelect.value;
@@ -139,16 +191,20 @@ if (!window.location.hash || window.location.hash === "#lobby") {
       if (!command) return;
     
       const inputs = commandInputs.querySelectorAll("input");
+      const paramTypes = commandParamTypes[command] || {};
       const data: Record<string, any> = {};
+    
       inputs.forEach(input => {
         const name = input.name;
-        let value: any = input.value;
-        if (!isNaN(Number(value))) value = Number(value); // cast number if applicable
-        data[name] = value;
+        const value = input.value;
+        const expectedType = paramTypes[name] || "string";
+    
+        data[name] = expectedType === "number" ? Number(value) : value;
       });
     
-      room.send(command, data); // assuming `room` is your active Colyseus room
-    });
+      console.log(command, data);
+      room.send(command, data);
+    });    
 
     // 7. Handle UI input for chat/messages
     sendButton.addEventListener("click", () => {
@@ -244,6 +300,30 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         messageInput.value = "";
       }
     });
+
+    function updateDebugUI(panel1: string, panel2: string, panel3: string) {
+      if (showDebug) {
+        debugPanel1.style.display = "block";
+        debugText1.textContent = panel1;
+        debugPanel2.style.display = "block";
+        debugText2.textContent = panel2;
+        debugPanel3.style.display = "block";
+        debugText3.textContent = panel3;
+      } else {
+        debugPanel1.style.display = "none";
+        debugPanel2.style.display = "none";
+        debugPanel3.style.display = "none";
+      }
+    }
+    // Listen for debug info
+    room.onMessage("debugInfo", (data) => {
+      console.log(data);
+      let content1 = data.content1;
+      let content2 = data.content2;
+      let content3 = data.content3;
+      updateDebugUI(content1, content2, content3);
+    });
+    
     room.onError((err) => {
       console.error("Room error:", err);
     });

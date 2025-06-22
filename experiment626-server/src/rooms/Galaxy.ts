@@ -43,6 +43,7 @@ export class Galaxy extends Room<GalaxyState> {
     idCounter: number = 0;
     skipToNextTurn: boolean = false;
     nextTurnTime: number = hoursPerTurn * 60 * 60 * 1000;
+    nextUITime: number = 2000;
     onCreate(options: createOptions) {
         console.log("Galaxy created");
         this.state = new GalaxyState();
@@ -59,6 +60,7 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.id = options.id;
         this.state.size = options.size;
         this.state.mapBlueprint = new ArraySchema<OccupiedSpaceState>();
+        this.nextUITime = this.state.clockTime + 2000;
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
@@ -135,6 +137,9 @@ export class Galaxy extends Room<GalaxyState> {
                 case "addClockTime":
                     this.state.clockTime += data.amount;
                     break;
+                case "listDebugInfo":
+                    this.sendDebugInfo(client.sessionId);
+                    break;
                 default:
                     console.warn("Gibberish in the message " + type + " " + data);
                     break;
@@ -149,6 +154,12 @@ export class Galaxy extends Room<GalaxyState> {
             this.fleetList.forEach((fleet: Fleet) => {
                 fleet.update(this.state.clockTime);
             });
+            while (this.state.clockTime >= this.nextUITime) {
+                this.clients.forEach((client: Client) => {
+                    this.sendDebugInfo(client.sessionId);
+                });
+                this.nextUITime += 1 * 1000;
+            }
             while (this.state.clockTime >= this.nextTurnTime) {
                 this.turn();
                 console.log("Turn at " + this.state.clockTime / 1000);
@@ -292,6 +303,10 @@ export class Galaxy extends Room<GalaxyState> {
             }
             return false;
         });
+        if (!twoStars[0] || !twoStars[1]) {
+            console.error("Source or destination star not found");
+            return -1;
+        }
         return Math.sqrt(Math.pow(twoStars[0].getX() - twoStars[1].getX(), 2) + Math.pow(twoStars[0].getY() - twoStars[1].getY(), 2));
     }
     fleetEndTimeCalculator(clockTime: number, distance: number, owner: string): number {
@@ -678,6 +693,22 @@ export class Galaxy extends Room<GalaxyState> {
         starsInRange.forEach((star: Star) => {
             console.log(star.toString());
         });
+    }
+    sendDebugInfo(clientId: string) {
+        let content1 = "";
+        let content2 = "";
+        let content3 = "";
+        this.starList.forEach((star: Star) => {
+            content1 += star.toString() + "\n";
+        });
+        this.fleetList.forEach((fleet: Fleet) => {
+            content2 += fleet.toString() + "\n";
+        });
+        this.empireList.forEach((empire: Empire) => {
+            content3 += empire.toString() + "\n";
+        });
+        let data = {content1, content2, content3};
+        this.clients.getById(clientId)?.send("debugInfo", data);
     }
     onJoin(client: Client, options: {empireName: string}) {
         this.state.playerIdList.push(client.sessionId);
