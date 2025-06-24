@@ -141,7 +141,7 @@ export class Galaxy extends Room<GalaxyState> {
                     this.sendDebugInfo(client.sessionId);
                     break;
                 default:
-                    console.warn("Gibberish in the message " + type + " " + data);
+                    console.warn(`Unrecognized Command: ${type}\n Data: ${data}\n Location: Galaxy.onMessage`);
                     break;
             }
         });
@@ -162,7 +162,7 @@ export class Galaxy extends Room<GalaxyState> {
             }
             while (this.state.clockTime >= this.nextTurnTime) {
                 this.turn();
-                console.log("Turn at " + this.state.clockTime / 1000);
+                console.log(`Turn at ${this.state.clockTime / 1000}`);
                 this.nextTurnTime += hoursPerTurn * 60 * 60 * 1000;
             }
             this.printMap();
@@ -191,7 +191,7 @@ export class Galaxy extends Room<GalaxyState> {
             case "test":
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
-                    console.error("Invalid galaxy size");
+                    console.error(`Invalid galaxy size: ${this.state.size}\n Location: Galaxy.initGalaxy(), 1`);
                     gsize = galaxySize.get("itty")!;
                     this.state.size = "itty";
                 }
@@ -205,7 +205,7 @@ export class Galaxy extends Room<GalaxyState> {
             default:
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
-                    console.error("Invalid galaxy size");
+                    console.error(`Invalid galaxy size: ${this.state.size}\n Location: Galaxy.initGalaxy(), 2`);
                     gsize = galaxySize.get("itty")!;
                     this.state.size = "itty";
                 }
@@ -239,7 +239,7 @@ export class Galaxy extends Room<GalaxyState> {
             }
             occupiedSpaceState.type = "s";
             if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error("❌ NaN found! " + star.getX() + "," + star.getY());
+                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\n Location: Galaxy.printMap(), 1`);
               }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
@@ -250,7 +250,7 @@ export class Galaxy extends Room<GalaxyState> {
             occupiedSpaceState.y = coords.y;
             occupiedSpaceState.type = "f";
             if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error("❌ NaN found! " + coords.x + "," + coords.y);
+                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\n Location: Galaxy.printMap(), 2`);
               }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
@@ -273,7 +273,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!sourceStar || !destinationStar) {
-            console.error("Source or destination star not found");
+            console.error(`Source or destination star not found\nSource Star ID: ${fleet.getSourceStarId()}\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.approximateCoordinates()`);
             return {x: x, y: y};
         }
         x = Math.round(sourceStar.getX() + (destinationStar.getX() - sourceStar.getX()) * percentDone);
@@ -286,7 +286,7 @@ export class Galaxy extends Room<GalaxyState> {
             while (foundStar === false) {
                 var randomstar = this.starList[Math.floor(Math.random() * this.starList.length)];
                 if (!randomstar) {
-                    console.error("Random star not found: Assigning core stars");
+                    console.error("Random star not found\n Location: Galaxy.assignCoreStars()");
                     break;
                 }
                 if (!randomstar.getOwner()) {
@@ -304,8 +304,8 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!twoStars[0] || !twoStars[1]) {
-            console.error("Source or destination star not found");
-            return -1;
+            console.error(`\nSource or destination star not found\n Source Star Id: ${sourceStarId}\n Destination Star Id: ${destinationStarId}`);
+            return 1000000000000000;
         }
         return Math.sqrt(Math.pow(twoStars[0].getX() - twoStars[1].getX(), 2) + Math.pow(twoStars[0].getY() - twoStars[1].getY(), 2));
     }
@@ -317,7 +317,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!fleetEmpire) {
-            console.error("Empire of Fleet not found");
+            console.error(`\nEmpire of Fleet not found\nOwner ID: ${owner}\n Location: Galaxy.fleetEndTimeCalculator()`);
             return clockTime + distance;
         }
         return clockTime + distance/startingRange * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.getSpeed() + 9) / 10);
@@ -350,7 +350,7 @@ export class Galaxy extends Room<GalaxyState> {
             return star2.getId() === fleet.getDestinationStarId();
         });
         if (!(star instanceof Star)) {
-            console.error("Star of Fleet Destination not found");
+            console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.fleetArrive(), 1`);
             return;
         }
         if (star.getOwner() === fleet.getOwner()) {
@@ -361,7 +361,7 @@ export class Galaxy extends Room<GalaxyState> {
             //Battle
             var defenders = this.empireList.find((empire: Empire) => {
                 if (!star) {
-                    console.error("Star of Fleet Destination not found");
+                    console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.fleetArrive(), 2`);
                     return false;
                 }
                 return empire.getOwnerId() === star.getOwner();
@@ -377,7 +377,7 @@ export class Galaxy extends Room<GalaxyState> {
                 return empire.getOwnerId() === fleet.getOwner();
             })
             if (!attackers) {
-                console.error("Attacker Empire not found");
+                console.error(`\nAttacker Empire not found\nOwner ID: ${fleet.getOwner()}\n Location: Galaxy.fleetArrive()`);
                 return;
             }
             var attackersBattlePower = attackers.getBattlePower();
@@ -465,7 +465,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!sourceStar || !destinationStar) {
-            console.error("Source or destination star not found");
+            console.error(`\nSource or destination star not found\nSource Star ID: ${sourceStarId}\nDestination Star ID: ${destinationStarId}\n Location: Galaxy.sendFleet()`);
             return;
         }
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -475,21 +475,21 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.sendFleet()`);
             return;
         }
         if (sourceStar.getOwner() !== clientEmpire.getId()) {
-            console.error("Source star not owned by player");
+            console.error(`\nSource star not owned by player\nOwner ID: ${sourceStar.getOwner()}\n Location: Galaxy.sendFleet()`);
             return;
         }
         if (sourceStar.getShipCount() < ships) {
-            console.error("Not enough ships");
+            console.error(`\nNot enough ships\nOwner ID: ${sourceStar.getShipCount()}\n Location: Galaxy.sendFleet()`);
             return;
         }
         var distance = this.distanceBetweenStars(sourceStarId, destinationStarId);
         var lightyears = distance/pixelsPerLightYear;
         if (lightyears > clientEmpire.getRange()) {
-            console.error("Empire cannot reach " + lightyears + " lightyears");
+            console.error(`\nEmpire range doesn't reach ${lightyears} lightyears\nRange: ${clientEmpire.getRange()}\nOwner ID: ${clientEmpire.getId()}\n Location: Galaxy.sendFleet()`);
             return;
         }
         sourceStar.setShipCount(sourceStar.getShipCount() - ships);
@@ -503,7 +503,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!star) {
-            console.error("Star not found");
+            console.error(`\nStar not found\nStar ID: ${starId}\n Location: Galaxy.buildFactory()`);
             return;
         }
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -513,20 +513,20 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.buildFactory()`);
             return;
         }
         if (star.getOwner() !== clientEmpire.getId()) {
-            console.error("Star not owned by player");
+            console.error(`\nStar not owned by player\nOwner ID: ${star.getOwner()}\n Location: Galaxy.buildFactory()`);
             return;
         }
         if (clientEmpire.getWealth() < clientEmpire.getFactoryCost()) {
-            console.error("Not enough wealth");
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getFactoryCost()}\n Location: Galaxy.buildFactory()`);
             return;
         }
         clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getFactoryCost());
         star.setFactoryCount(star.getFactoryCount() + 1);
-        console.log("Factory Built on " + star.getName() + " (" + star.getId() + ")");
+        console.log(`\nFactory built on ${star.getName()} (${star.getId()}) for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.buildFactory()`);
     }
     upgradeSpeed(clientId: string) {
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -536,17 +536,17 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeSpeed()`);
             return;
         }
         if (clientEmpire.getWealth() < clientEmpire.getSpeedCost()) {
-            console.error("Not enough wealth");
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getSpeedCost()}\n Location: Galaxy.upgradeSpeed()`);
             return;
         }
         clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getSpeedCost());
         clientEmpire.setSpeed(clientEmpire.getSpeed() + 1);
         clientEmpire.setSpeedCost(this.calculateSpeedCost(clientId));
-        console.log("Speed upgraded to " + clientEmpire.getSpeed() + " for " + clientEmpire.getName());
+        console.log(`\nSpeed upgraded to ${clientEmpire.getSpeed()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeSpeed()`);
     }
     upgradeRange(clientId: string) {
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -556,17 +556,17 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeRange()`);
             return;
         }
         if (clientEmpire.getWealth() < clientEmpire.getRangeCost()) {
-            console.error("Not enough wealth");
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getRangeCost()}\n Location: Galaxy.upgradeRange()`);
             return;
         }
         clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getRangeCost());
         clientEmpire.setRange(clientEmpire.getRange() + 1);
         clientEmpire.setRangeCost(this.calculateRangeCost(clientId));
-        console.log("Range upgraded to " + clientEmpire.getRange() + " for " + clientEmpire.getName());
+        console.log(`\nRange upgraded to ${clientEmpire.getRange()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeRange()`);
     }
     upgradeBattlePower(clientId: string) {
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -576,17 +576,17 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeBattlePower()`);
             return;
         }
         if (clientEmpire.getWealth() < clientEmpire.getBattlePowerCost()) {
-            console.error("Not enough wealth");
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getBattlePowerCost()}\n Location: Galaxy.upgradeBattlePower()`);
             return;
         }
         clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getBattlePowerCost());
         clientEmpire.setBattlePower(clientEmpire.getBattlePower() + 1);
         clientEmpire.setBattlePowerCost(this.calculateBattlePowerCost(clientId));
-        console.log("Battle Power upgraded to " + clientEmpire.getBattlePower() + " for " + clientEmpire.getName());
+        console.log(`\nBattle Power upgraded to ${clientEmpire.getBattlePower()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeBattlePower()`);
     }
     calculateSpeedCost(clientId: string): number {
         var clientEmpire = this.empireList.find((empire: Empire) => {
@@ -596,7 +596,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateSpeedCost()`);
             return -1;
         }
         var x  = clientEmpire.getSpeedCost();
@@ -610,7 +610,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateRangeCost()`);
             return -1;
         }
         var x  = clientEmpire.getRangeCost();
@@ -624,7 +624,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateBattlePowerCost()`);
             return -1;
         }
         var x  = clientEmpire.getBattlePowerCost();
@@ -638,11 +638,11 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.sendWealth()`);
             return;
         }
         if (clientEmpire.getWealth() < amount) {
-            console.error("Not enough wealth");
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nAmount: ${amount}\n Location: Galaxy.sendWealth()`);
             return;
         }
         clientEmpire.setWealth(clientEmpire.getWealth() - amount);
@@ -653,7 +653,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!targetEmpire) {
-            console.error("Target empire not found");
+            console.error(`\nTarget empire not found\nOwner ID: ${targetId}\n Location: Galaxy.sendWealth()`);
             return;
         }
         targetEmpire.setWealth(targetEmpire.getWealth() + amount);
@@ -666,7 +666,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!clientEmpire) {
-            console.error("Client empire not found");
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.listStarsInRange()`);
             return;
         }
         var range = clientEmpire.getRange();
@@ -677,7 +677,7 @@ export class Galaxy extends Room<GalaxyState> {
             return false;
         });
         if (!star) {
-            console.error("Star not found");
+            console.error(`\nStar not found\nStar ID: ${starId}\n Location: Galaxy.listStarsInRange()`);
             return;
         }
         var starX = star.getX();
@@ -716,7 +716,7 @@ export class Galaxy extends Room<GalaxyState> {
             this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
         }
         else {
-            console.error("No empire name provided");
+            console.error(`\nNo empire name provided\nOwner ID: ${client.sessionId}\n Location: Galaxy.onJoin()`);
             this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
         }
         client.send("yourIDs", {Id: client.sessionId, empireId: this.empireList[this.empireList.length - 1].getId()});
