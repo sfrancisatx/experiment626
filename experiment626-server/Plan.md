@@ -77,4 +77,7 @@ The Lobby will be a new room type on the server, responsible for handling player
 - **Client Implementation (future):**
   - UI for entering player name, viewing game list, creating/joining games.
 
+- **Future Features:**
+  - Could implement LLM short term memory that has access to recent interactions with a player, and longer-term memory which is the RAG/style context that it operates within the game. 
+  - i like the idea of letting a localized LLM generate more interesting names for stars, fleets, empires, etc., but also status messages, battle descriptions, and other updates. 
 ---

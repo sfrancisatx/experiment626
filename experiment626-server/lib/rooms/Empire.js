@@ -3,19 +3,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Empire = void 0;
 const core_1 = require("@colyseus/core");
 class Empire extends core_1.Room {
-    constructor(state, id, name, ownerId, starsOwned, wealth, researchPoints, speed, range, battlePower) {
+    constructor(state, id, name, ownerId, wealth, factoryCost, speed, range, battlePower, speedCost, rangeCost, battlePowerCost) {
         super();
         this.state = state;
-        this.starsOwned = [];
         this.state.id = id;
         this.state.name = name;
         this.state.ownerId = ownerId;
         this.state.wealth = wealth;
-        this.state.researchPoints = researchPoints;
+        this.state.factoryCost = factoryCost;
         this.state.speed = speed;
         this.state.range = range;
         this.state.battlePower = battlePower;
-        this.starsOwned = starsOwned;
+        this.state.speedCost = speedCost;
+        this.state.rangeCost = rangeCost;
+        this.state.battlePowerCost = battlePowerCost;
     }
     getId() {
         return this.state.id;
@@ -26,15 +27,11 @@ class Empire extends core_1.Room {
     getOwnerId() {
         return this.state.ownerId;
     }
-    getStarsOwned() {
-        var passingStarsOwned = this.starsOwned;
-        return passingStarsOwned;
-    }
     getWealth() {
         return this.state.wealth;
     }
-    getResearchPoints() {
-        return this.state.researchPoints;
+    getFactoryCost() {
+        return this.state.factoryCost;
     }
     getSpeed() {
         return this.state.speed;
@@ -45,21 +42,26 @@ class Empire extends core_1.Room {
     getBattlePower() {
         return this.state.battlePower;
     }
+    getSpeedCost() {
+        return this.state.speedCost;
+    }
+    getRangeCost() {
+        return this.state.rangeCost;
+    }
+    getBattlePowerCost() {
+        return this.state.battlePowerCost;
+    }
     setName(name) {
         this.state.name = name;
     }
     setOwnerId(ownerId) {
         this.state.ownerId = ownerId;
     }
-    setStarsOwned(starsOwned) {
-        var tempStarsOwned = starsOwned;
-        this.starsOwned = tempStarsOwned;
-    }
     setWealth(wealth) {
         this.state.wealth = wealth;
     }
-    setResearchPoints(researchPoints) {
-        this.state.researchPoints = researchPoints;
+    setFactoryCost(factoryCost) {
+        this.state.factoryCost = factoryCost;
     }
     setSpeed(speed) {
         this.state.speed = speed;
@@ -69,6 +71,31 @@ class Empire extends core_1.Room {
     }
     setBattlePower(battlePower) {
         this.state.battlePower = battlePower;
+    }
+    setSpeedCost(speedCost) {
+        this.state.speedCost = speedCost;
+    }
+    setRangeCost(rangeCost) {
+        this.state.rangeCost = rangeCost;
+    }
+    setBattlePowerCost(battlePowerCost) {
+        this.state.battlePowerCost = battlePowerCost;
+    }
+    toString(verbose = "false") {
+        if (verbose === "true") {
+            return "Name: " + this.state.name + "\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner ID: " + this.state.ownerId + "\n" +
+                "Wealth: " + this.state.wealth + "\n" +
+                "Speed: " + this.state.speed + "\n" +
+                "Range: " + this.state.range + "\n" +
+                "Battle Power: " + this.state.battlePower;
+        }
+        else {
+            return "Name: " + this.state.name + "\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner ID: " + this.state.ownerId;
+        }
     }
 }
 exports.Empire = Empire;

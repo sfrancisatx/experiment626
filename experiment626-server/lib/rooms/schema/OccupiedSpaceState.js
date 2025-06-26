@@ -9,51 +9,30 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StarState = void 0;
+exports.OccupiedSpaceState = void 0;
 const schema_1 = require("@colyseus/schema");
-class StarState extends schema_1.Schema {
+class OccupiedSpaceState extends schema_1.Schema {
     constructor() {
         super(...arguments);
-        this.id = "";
-        this.name = "";
-        this.owner = "";
         this.x = 0;
         this.y = 0;
-        this.wealthProduction = 0;
-        this.factoryCount = 0;
-        this.shipCount = 0;
+        this.type = "";
     }
 }
-exports.StarState = StarState;
+exports.OccupiedSpaceState = OccupiedSpaceState;
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], OccupiedSpaceState.prototype, "x", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], OccupiedSpaceState.prototype, "y", void 0);
 __decorate([
     (0, schema_1.type)("string"),
     __metadata("design:type", String)
-], StarState.prototype, "id", void 0);
+], OccupiedSpaceState.prototype, "type", void 0);
 __decorate([
     (0, schema_1.type)("string"),
     __metadata("design:type", String)
-], StarState.prototype, "name", void 0);
-__decorate([
-    (0, schema_1.type)("string"),
-    __metadata("design:type", String)
-], StarState.prototype, "owner", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], StarState.prototype, "x", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], StarState.prototype, "y", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], StarState.prototype, "wealthProduction", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], StarState.prototype, "factoryCount", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], StarState.prototype, "shipCount", void 0);
+], OccupiedSpaceState.prototype, "owner", void 0);

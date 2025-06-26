@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Experiment 626 Landing</title>
+  <style>
+    #landingPage {
+      padding: 2rem;
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    #status {
+      margin-top: 1rem;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div id="landingPage">
+    <h2>🌌 Welcome to Experiment 626</h2>
+    <label>Player Name: <input type="text" id="playerName" placeholder="Enter your name" required></label>
+    <button id="connectBtn">Connect</button>
+    <div id="status"></div>
+  </div>
+  <script type="module">
+    import { Client } from '../node_modules/colyseus.js/dist/colyseus.js';
+
+    const client = new Client("ws://localhost:2567"); // Adjust if server runs elsewhere
+
+    document.getElementById('connectBtn').onclick = async function() {
+      const name = document.getElementById('playerName').value;
+      const status = document.getElementById('status');
+      if (!name) {
+        status.textContent = "Please enter your name!";
+        return;
+      }
+      status.textContent = "Connecting...";
+      try {
+        const room = await client.joinOrCreate("lobby", { name });
+        status.textContent = `Connected! Room ID: ${room.id}`;
+        // You can now interact with the room, send/receive messages, etc.
+      } catch (err) {
+        status.textContent = "Failed to connect: " + err;
+      }
+    };
+  </script>
+</body>
+</html>
