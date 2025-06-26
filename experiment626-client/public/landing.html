@@ -20,15 +20,14 @@
 </head>
 <body>
   <div id="landingPage">
-    <h2>🌌 Welcome to Experiment 626</h2>
+    <h2>🌌 Welcome to Experiment 626 Static HTML</h2>
     <label>Player Name: <input type="text" id="playerName" placeholder="Enter your name" required></label>
     <button id="connectBtn">Connect</button>
     <div id="status"></div>
   </div>
   <script type="module">
-    import { Client } from '../node_modules/colyseus.js/dist/colyseus.js';
-
-    const client = new Client("ws://localhost:2567"); // Adjust if server runs elsewhere
+    import * as Colyseus from "https://cdn.jsdelivr.net/npm/colyseus.js@0.16.19/dist/colyseus.js";
+    const client = new Colyseus.Client("ws://localhost:5111");
 
     document.getElementById('connectBtn').onclick = async function() {
       const name = document.getElementById('playerName').value;
@@ -40,7 +39,7 @@
       status.textContent = "Connecting...";
       try {
         const room = await client.joinOrCreate("lobby", { name });
-        status.textContent = `Connected! Room ID: ${room.id}`;
+        status.textContent = `Connected! Room ID: ${room.roomId}`;
         // You can now interact with the room, send/receive messages, etc.
       } catch (err) {
         status.textContent = "Failed to connect: " + err;

@@ -1,14 +1,17 @@
 // LandingPage.ts
-// This module creates and manages the lobby landing page UI and logic, without breaking the existing UI.
-
+// Self-contained landing page for connecting to Colyseus server
 import { Client, Room } from "colyseus.js";
 
-export function showLandingPage(client: Client) {
+export function showLandingPage(client: Client): void {
+  // Remove any existing landing page
+  const oldLanding = document.getElementById("landingPage");
+  if (oldLanding) oldLanding.remove();
+
   // Create landing page container
   const landing = document.createElement("div");
   landing.id = "landingPage";
   landing.style.padding = "2rem";
-  landing.style.maxWidth = "600px";
+  landing.style.maxWidth = "400px";
   landing.style.margin = "2rem auto";
   landing.style.background = "#f8f9fa";
   landing.style.borderRadius = "8px";
@@ -43,6 +46,41 @@ export function showLandingPage(client: Client) {
   gameList.style.padding = "0";
   landing.appendChild(gameList);
 
+  // Helper to request and render game list
+  function requestGameList() {
+    client.joinOrCreate("lobby", { name: nameInput.value || "Guest" }).then(lobbyRoom => {
+      lobbyRoom.onMessage("__playground_message_types", (msg: any) => {
+        console.debug("[Colyseus] __playground_message_types received:", msg);
+      });
+      lobbyRoom.send("list_games");
+      lobbyRoom.onMessage("galaxy_list", (games: any[] | null) => {
+        gameList.innerHTML = "";
+        if (!games || !games.length) {
+          const li = document.createElement("li");
+          li.textContent = "No games available.";
+          gameList.appendChild(li);
+        } else {
+          games.forEach((g: any) => {
+            const li = document.createElement("li");
+            li.style.marginBottom = "0.5rem";
+            li.textContent = `${g.name} [${g.status}, ${g.playerCount} players]`;
+            const joinBtn = document.createElement("button");
+            joinBtn.textContent = "Join";
+            joinBtn.onclick = () => {
+              lobbyRoom.send("join_game", { roomId: g.roomId });
+              lobbyRoom.onMessage("game_join", (roomId: string) => {
+                window.location.hash = "#game-" + roomId;
+                window.location.reload();
+              });
+            };
+            li.appendChild(joinBtn);
+            gameList.appendChild(li);
+          });
+        }
+      });
+    });
+  }
+
   // Refresh button
   const refreshBtn = document.createElement("button");
   refreshBtn.textContent = "🔄 Refresh";
@@ -58,7 +96,10 @@ export function showLandingPage(client: Client) {
       alert("Please enter your name first.");
       return;
     }
-    client.joinOrCreate("lobby", { name: nameInput.value }).then(lobbyRoom => {
+    client.joinOrCreate("lobby", { name: nameInput.value }).then((lobbyRoom: Room) => {
+      lobbyRoom.onMessage("__playground_message_types", (msg: any) => {
+        console.debug("[Colyseus] __playground_message_types received:", msg);
+      });
       lobbyRoom.send("create_game", { options: { name: nameInput.value + "'s Galaxy" } });
       lobbyRoom.onMessage("game_created", ({ roomId }) => {
         window.location.hash = "#game-" + roomId;
@@ -68,43 +109,45 @@ export function showLandingPage(client: Client) {
   };
   landing.appendChild(createBtn);
 
+  // Status display
+  const statusDiv = document.createElement("div");
+  statusDiv.id = "status";
+  statusDiv.style.marginTop = "1rem";
+  statusDiv.style.color = "#333";
+  landing.appendChild(statusDiv);
+
+  // Connect button
+  const connectBtn = document.createElement("button");
+  connectBtn.textContent = "Connect";
+  landing.appendChild(connectBtn);
+
+  // Connect logic
+  connectBtn.onclick = async function () {
+    const name = nameInput.value.trim();
+    if (!name) {
+      statusDiv.textContent = "Please enter your name!";
+      return;
+    }
+    statusDiv.textContent = "Connecting...";
+    try {
+      const room = await client.joinOrCreate("lobby", { name });
+      room.onMessage("__playground_message_types", (msg: any) => {
+        console.debug("[Colyseus] __playground_message_types received:", msg);
+      });
+      statusDiv.textContent = `Connected! Room ID: ${room.roomId}`;
+      // Optionally, trigger callback or redirect here
+    } catch (err) {
+      statusDiv.textContent = "Failed to connect: " + err;
+    }
+  };
+
   // Append landing page to body (or #app)
   const app = document.getElementById("app");
   if (app) {
     app.style.display = "none";
     document.body.appendChild(landing);
-  }
-
-  // Request and render game list
-  function requestGameList() {
-    client.joinOrCreate("lobby", { name: nameInput.value || "Guest" }).then(lobbyRoom => {
-      lobbyRoom.send("list_games");
-      lobbyRoom.onMessage("galaxy_list", (games) => {
-        gameList.innerHTML = "";
-        if (!games.length) {
-          const li = document.createElement("li");
-          li.textContent = "No games available.";
-          gameList.appendChild(li);
-        } else {
-          games.forEach((g: any) => {
-            const li = document.createElement("li");
-            li.style.marginBottom = "0.5rem";
-            li.textContent = `${g.name} [${g.status}, ${g.playerCount} players]`;
-            const joinBtn = document.createElement("button");
-            joinBtn.textContent = "Join";
-            joinBtn.onclick = () => {
-              lobbyRoom.send("join_game", { roomId: g.roomId });
-              lobbyRoom.onMessage("game_join", ({ roomId }) => {
-                window.location.hash = "#game-" + roomId;
-                window.location.reload();
-              });
-            };
-            li.appendChild(joinBtn);
-            gameList.appendChild(li);
-          });
-        }
-      });
-    });
+  } else {
+    document.body.appendChild(landing);
   }
 
   // Initial game list fetch

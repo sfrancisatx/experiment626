@@ -80,4 +80,7 @@ The Lobby will be a new room type on the server, responsible for handling player
 - **Future Features:**
   - Could implement LLM short term memory that has access to recent interactions with a player, and longer-term memory which is the RAG/style context that it operates within the game. 
   - i like the idea of letting a localized LLM generate more interesting names for stars, fleets, empires, etc., but also status messages, battle descriptions, and other updates. 
+  - using LLM to interpret free language inputs from teh users like "can you schedule a fleet of 100 ships from A to B at 8?"  etc. ? 
+    - the LLM would then have a limited set of instructions to choose from - like "sendFleet" etc. - and would have to interpret which parts of the instruction match to arguments... and perhaps it would offer "this is what i think you want, hit enter to confirm" style interface? 
+    
 ---
