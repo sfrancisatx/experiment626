@@ -150,7 +150,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
 
     // 5. Handle incoming messages
     room.onMessage("*", (type, data) => {
-      console.log(`📨 [${type}]`, data);
+      console.log(`\nMessage Received: [${type}]`, data);
       switch (type) {
         case "yourIDs": {
           sessionId = data.Id;
@@ -202,7 +202,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         data[name] = expectedType === "number" ? Number(value) : value;
       });
     
-      console.log(command, data);
+      console.log(`\nCommand Sent (Through Dropdown): [${command}]`, data);
       room.send(command, data);
     });    
 
@@ -295,7 +295,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
           default:
             break;
         }
-        console.log(instructionName, data);
+        console.log(`\nCommand Sent (Through Text Box Input): [${instructionName}]`, data);
         room.send(instructionName, data);
         messageInput.value = "";
       }
@@ -317,7 +317,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
     }
     // Listen for debug info
     room.onMessage("debugInfo", (data) => {
-      console.log(data);
+      console.log(`\nDebug Info Received:`, data);
       let content1 = data.content1;
       let content2 = data.content2;
       let content3 = data.content3;
@@ -325,7 +325,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
     });
     
     room.onError((err) => {
-      console.error("Room error:", err);
+      console.error("Room Error:", err);
     });
     room.onLeave(() => {
       console.log("❌ Left room");
