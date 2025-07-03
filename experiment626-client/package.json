@@ -13,6 +13,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "colyseus.js": "^0.16.19"
+    "colyseus.js": "^0.16.19",
+    "pixi.js": "^8.10.2"
   }
 }

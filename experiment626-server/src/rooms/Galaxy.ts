@@ -25,7 +25,7 @@ interface createOptions {
     size: string;
 }
 
-const pixelsPerLightYear = 1;
+const gridUnitsPerLightYear = 1;
 const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds
 const startingRange = 17;
 
@@ -487,7 +487,7 @@ export class Galaxy extends Room<GalaxyState> {
             return;
         }
         var distance = this.distanceBetweenStars(sourceStarId, destinationStarId);
-        var lightyears = distance/pixelsPerLightYear;
+        var lightyears = distance/gridUnitsPerLightYear;
         if (lightyears > clientEmpire.getRange()) {
             console.error(`\nEmpire range doesn't reach ${lightyears} lightyears\nRange: ${clientEmpire.getRange()}\nOwner ID: ${clientEmpire.getId()}\n Location: Galaxy.sendFleet()`);
             return;
