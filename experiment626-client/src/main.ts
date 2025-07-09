@@ -248,39 +248,95 @@ function setupCameraControls(app: PIXI.Application, galaxySize: number) {
     const viewHeight = app.renderer.height;
     let dragging = false;
     let lastMouse = { x: 0, y: 0 };
+    let pendingPan = { dx: 0, dy: 0 };
+    let grabWorld = { x: 0, y: 0 };
 
     app.view.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        zoom *= e.deltaY < 0 ? 1.1 : 0.9;
-        zoom = Math.max(1, Math.min(5, zoom));
+      e.preventDefault();
+        
+      const rect = app.view.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const unitsVisibleX = galaxySize / zoom;
+      const unitsVisibleY = galaxySize / zoom;
+      const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
+      const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
+
+      // World coords under cursor before zoom
+      const worldXBefore = minX + (mouseX / viewWidth) * unitsVisibleX;
+      const worldYBefore = minY + (mouseY / viewHeight) * unitsVisibleY;
+
+      // Apply zoom
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      zoom *= zoomFactor;
+      zoom = Math.max(1, Math.min(10, zoom));
+
+      // Units visible after zoom
+      const newUnitsVisibleX = galaxySize / zoom;
+      const newUnitsVisibleY = galaxySize / zoom;
+      const newMinX = gridUnitCameraCenterX - newUnitsVisibleX / 2;
+      const newMinY = gridUnitCameraCenterY - newUnitsVisibleY / 2;
+
+      // World coords under cursor after zoom
+      const worldXAfter = newMinX + (mouseX / viewWidth) * newUnitsVisibleX;
+      const worldYAfter = newMinY + (mouseY / viewHeight) * newUnitsVisibleY;
+
+      // Adjust camera to keep point under cursor fixed
+      gridUnitCameraCenterX += (worldXBefore - worldXAfter);
+      gridUnitCameraCenterY += (worldYBefore - worldYAfter);
     });
 
     app.view.addEventListener("mousedown", (e) => {
         dragging = true;
-        lastMouse.x = e.clientX;
-        lastMouse.y = e.clientY;
+        const rect = app.view.getBoundingClientRect();
+        lastMouse.x = e.clientX - rect.left;
+        lastMouse.y = e.clientY - rect.top;
+
+        const unitsVisibleX = galaxySize / zoom;
+        const unitsVisibleY = galaxySize / zoom;
+        const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
+        const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
+
+        grabWorld.x = minX + (lastMouse.x / app.renderer.width) * unitsVisibleX;
+        grabWorld.y = minY + (lastMouse.y / app.renderer.height) * unitsVisibleY;
     });
     app.view.addEventListener("mouseup", () => dragging = false);
     app.view.addEventListener("mouseleave", () => dragging = false);
     app.view.addEventListener("mousemove", (e) => {
         if (dragging) {
-            const Pixelsdx = e.clientX - lastMouse.x;
-            const Pixelsdy = e.clientY - lastMouse.y;
-            const unitsVisible = galaxySize / zoom;
-            const PixelsPerUnitX = viewWidth / unitsVisible;
-            const PixelsPerUnitY = viewHeight / unitsVisible;
-            gridUnitCameraCenterX -= Pixelsdx / PixelsPerUnitX;
-            gridUnitCameraCenterY -= Pixelsdy / PixelsPerUnitY;
-            gridUnitCameraCenterX = Math.max(0, Math.min(galaxySize, gridUnitCameraCenterX));
-            gridUnitCameraCenterY = Math.max(0, Math.min(galaxySize, gridUnitCameraCenterY));
-            lastMouse.x = e.clientX;
-            lastMouse.y = e.clientY;
+          const rect = app.view.getBoundingClientRect();
+          const currentMouseX = e.clientX - rect.left;
+          const currentMouseY = e.clientY - rect.top;
+  
+          const unitsVisibleX = galaxySize / zoom;
+          const unitsVisibleY = galaxySize / zoom;
+          const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
+          const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
+  
+          const currentWorldX = minX + (currentMouseX / app.renderer.width) * unitsVisibleX;
+          const currentWorldY = minY + (currentMouseY / app.renderer.height) * unitsVisibleY;
+  
+          const deltaX = grabWorld.x - currentWorldX;
+          const deltaY = grabWorld.y - currentWorldY;
+  
+          pendingPan.dx += deltaX;
+          pendingPan.dy += deltaY; 
+        }
+    });
+    app.ticker.add(() => {
+        if (pendingPan.dx !== 0 || pendingPan.dy !== 0) {
+            gridUnitCameraCenterX += pendingPan.dx;
+            gridUnitCameraCenterY += pendingPan.dy;
+            pendingPan.dx = 0;
+            pendingPan.dy = 0;
         }
     });
 }
 
-function renderGalaxyState(state: GalaxyState, app: PIXI.Application, galaxySize: number) {
-    const stage = app.stage;
+function renderGalaxyState(state: GalaxyState, app: PIXI.Application | null, galaxySize: number) {
+  if (!app) return;
+  const stage = app.stage;
     stage.removeChildren();
     if (zoom < 1) {
         console.log("Zoom is less than 1; Invalid value");
@@ -317,11 +373,6 @@ function renderGalaxyState(state: GalaxyState, app: PIXI.Application, galaxySize
 
     for (const space of state.mapBlueprint) {
         if (space.x >= minX && space.x <= maxX && space.y >= minY && space.y <= maxY) {
-            console.log(`
-            space.x: ${space.x}
-            space.y: ${space.y}
-            space.type: ${space.type}
-            `);
         const screenX = (space.x - minX) * pixelsPerUnitX;
         const screenY = (space.y - minY) * pixelsPerUnitY;
         let sprite;
@@ -334,8 +385,8 @@ function renderGalaxyState(state: GalaxyState, app: PIXI.Application, galaxySize
           console.error ('Sprite is undefined\nspace.type = ' + space.type);
           return;
         }
-        sprite.width = 10;
-        sprite.height = 10;
+        sprite.width = 10 * zoom;
+        sprite.height = 10 * zoom;
         sprite.anchor.set(0.5);
         sprite.x = screenX;
         sprite.y = screenY;
