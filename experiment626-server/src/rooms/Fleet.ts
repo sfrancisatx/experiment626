@@ -1,11 +1,9 @@
-import { Client, Room } from "@colyseus/core";
 import { FleetState } from "./schema/FleetState";
 import { Galaxy } from "./Galaxy";
 
-export class Fleet extends Room<FleetState> {
+export class Fleet {
     private galaxy: Galaxy;
     constructor(public state: FleetState, galaxy: Galaxy, id: string, owner: string, sourceStarId: string, destinationStarId: string, ships: number, startTime: number, endTime: number) {
-        super();
         this.state.id = id;
         this.state.owner = owner;
         this.state.sourceStarId = sourceStarId;

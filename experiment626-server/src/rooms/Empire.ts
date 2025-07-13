@@ -1,10 +1,7 @@
 import { EmpireState } from "./schema/EmpireState";
-import { Room } from "@colyseus/core";
-import { Star } from "./Star";
 
-export class Empire extends Room<EmpireState> {
+export class Empire {
     constructor(public state: EmpireState, id: string, name: string, ownerId: string, wealth: number, factoryCost: number, speed: number, range: number, battlePower: number, speedCost: number, rangeCost: number, battlePowerCost: number) {
-        super();
         this.state.id = id;
         this.state.name = name;
         this.state.ownerId = ownerId;

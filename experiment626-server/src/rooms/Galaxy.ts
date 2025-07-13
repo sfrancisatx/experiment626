@@ -26,7 +26,7 @@ interface createOptions {
 }
 
 const gridUnitsPerLightYear = 1;
-const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds
+const hoursPerTurn = 0.0002777777778; //0.008333333333 = 1 turn every 30 seconds 0.002777777778 = 1 turn every 10 seconds 0.0002777777778 = 1 turn every second
 const startingRange = 17;
 
 const galaxySize = new Map<string, number>([
@@ -239,7 +239,7 @@ export class Galaxy extends Room<GalaxyState> {
             }
             occupiedSpaceState.type = "s";
             if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\n Location: Galaxy.printMap(), 1`);
+                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\nStar: ${star.toString()}\nLocation: Galaxy.printMap(), 1`);
               }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
@@ -250,7 +250,7 @@ export class Galaxy extends Room<GalaxyState> {
             occupiedSpaceState.y = coords.y;
             occupiedSpaceState.type = "f";
             if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\n Location: Galaxy.printMap(), 2`);
+                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\nFleet: ${fleet.toString()}\nLocation: Galaxy.printMap(), 2`);
               }
             this.state.mapBlueprint.push(occupiedSpaceState);
         });
