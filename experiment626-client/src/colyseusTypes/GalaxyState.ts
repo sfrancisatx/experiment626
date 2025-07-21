@@ -24,5 +24,6 @@ export class GalaxyState extends Schema {
     @type("number") public startingBattlePowerCost!: number;
     @type("string") public vpId!: string;
     @type("string") public size!: string;
-    @type([OccupiedSpaceState]) public mapBlueprint: ArraySchema<OccupiedSpaceState> = new ArraySchema<OccupiedSpaceState>();
+    @type("number") public visibilityLevel!: number;
+    @type("number") public minimumDistanceBetweenStars!: number;
 }

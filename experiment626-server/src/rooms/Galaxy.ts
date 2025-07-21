@@ -7,7 +7,7 @@ import { EmpireState } from "./schema/EmpireState";
 import { FleetState } from "./schema/FleetState";
 import { StarState } from "./schema/StarState";
 import { ArraySchema } from "@colyseus/schema";
-import { OccupiedSpaceState } from "./schema/OccupiedSpaceState";
+import { PlayerViewState } from "./schema/PlayerViewState";
 
 interface createOptions {
     vpId?: string;
@@ -23,10 +23,12 @@ interface createOptions {
     startingBattlePowerCost: number;
     id: string;
     size: string;
+    visibilityLevel: number;
+    minimumDistanceBetweenStars: number;
 }
 
 const gridUnitsPerLightYear = 1;
-const hoursPerTurn = 0.0002777777778; //0.008333333333 = 1 turn every 30 seconds 0.002777777778 = 1 turn every 10 seconds 0.0002777777778 = 1 turn every second
+const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds 0.002777777778 = 1 turn every 10 seconds 0.0002777777778 = 1 turn every second
 const startingRange = 17;
 
 const galaxySize = new Map<string, number>([
@@ -37,13 +39,16 @@ const galaxySize = new Map<string, number>([
 ]);
 
 export class Galaxy extends Room<GalaxyState> {
-    fleetList: Fleet[] = [];
-    starList: Star[] = [];
-    empireList: Empire[] = [];
+    fleetList: Map<string, Fleet> = new Map<string, Fleet>(); //Fleet ID -> Fleet
+    starList: Map<string, Star> = new Map<string, Star>(); //Star ID -> Star
+    empireList: Map<string, Empire> = new Map<string, Empire>(); //Empire ID -> Empire
+    playerToEmpireList: Map<string, string> = new Map<string, string>(); //Player ID -> Empire ID
     idCounter: number = 0;
     skipToNextTurn: boolean = false;
     nextTurnTime: number = hoursPerTurn * 60 * 60 * 1000;
     nextUITime: number = 2000;
+    playerViewStateList: Map<string, PlayerViewState> = new Map<string, PlayerViewState>(); //Client ID -> PlayerViewState
+    starVisibilityMap: Map<string, string[]> = new Map<string, string[]>(); //Empire ID -> Star ID[]
     onCreate(options: createOptions) {
         console.log("Galaxy created");
         this.state = new GalaxyState();
@@ -59,7 +64,8 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingBattlePowerCost = options.startingBattlePowerCost || 1;
         this.state.id = options.id;
         this.state.size = options.size;
-        this.state.mapBlueprint = new ArraySchema<OccupiedSpaceState>();
+        this.state.visibilityLevel = options.visibilityLevel || 1;
+        this.state.minimumDistanceBetweenStars = options.minimumDistanceBetweenStars || 5;
         this.nextUITime = this.state.clockTime + 2000;
         if (options.vpId) {
             this.state.vpId = options.vpId;
@@ -107,7 +113,14 @@ export class Galaxy extends Room<GalaxyState> {
                     break;
                 case "printMap":
                     console.log("printMap " + this.state.clockTime/1000);
-                    this.printMap();
+                    const empireId = this.playerToEmpireList.get(client.sessionId);
+                    if (!empireId) {
+                        console.error(`Empire not found while Client Requesting to printMap\nClient ID: ${client.sessionId}\nLocation: Galaxy.printMap`);
+                        break;
+                    }
+                    this.genStarVisibilityMap(empireId);
+                    this.genPlayerStarView(client.sessionId);
+                    this.genPlayerFleetView(client.sessionId);
                     console.log("done printMap " + this.state.clockTime/1000);
                     break;
                 case "sendFleet":
@@ -132,13 +145,31 @@ export class Galaxy extends Room<GalaxyState> {
                     this.skipToNextTurn = true;
                     break;
                 case "listStarsInRange":
-                    this.listStarsInRange(data.starId, client.sessionId);
+                    this.listStarsInRange(data.starId, client.sessionId).forEach((star: Star) => {
+                        console.log(star.toString());
+                    });
                     break;
                 case "addClockTime":
                     this.state.clockTime += data.amount;
                     break;
                 case "listDebugInfo":
                     this.sendDebugInfo(client.sessionId);
+                    break;
+                case "listStarVisibilityMap":
+                    console.log(this.starVisibilityMap);
+                    break;
+                case "listPlayersStarView":
+                    this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                        console.log(`Player ID: ${playerViewState.sessionId}`);
+                        playerViewState.starList.forEach((star: StarState) => {
+                            console.log(`Star ID: ${star.id}\nOwner ID: ${star.owner}\nName: ${star.name}\nCoordinates: ${star.x}, ${star.y}\nWealth Production: ${star.wealthProduction}\nFactory Count: ${star.factoryCount}\nShip Count: ${star.shipCount}\nLocation: Galaxy.listPlayersStarView`);
+                        });
+                    });
+                    break;
+                case "listPlayersFleetView":
+                    this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                        console.log(playerViewState.fleetList);
+                    });
                     break;
                 default:
                     console.warn(`Unrecognized Command: ${type}\n Data: ${data}\n Location: Galaxy.onMessage`);
@@ -165,7 +196,9 @@ export class Galaxy extends Room<GalaxyState> {
                 console.log(`Turn at ${this.state.clockTime / 1000}`);
                 this.nextTurnTime += hoursPerTurn * 60 * 60 * 1000;
             }
-            this.printMap();
+            this.clients.forEach((client: Client) => {
+                this.genPlayerFleetView(client.sessionId);
+            });
         });
     }
     turn() {
@@ -175,18 +208,21 @@ export class Galaxy extends Room<GalaxyState> {
         });
         // Generating wealth for each empire
         this.empireList.forEach((empire: Empire) => {
-            var starsOwned = this.starList.filter((star: Star) => {
-                return star.getOwner() === empire.getId();
+            var starsOwned: Star[] = [];
+            this.starList.forEach((star: Star) => {
+                if (star.state.owner === empire.state.id) {
+                    starsOwned.push(star);
+                }
             });
             var wealthGenerated = 0;
             starsOwned.forEach((star: Star) => {
-                wealthGenerated += star.getWealthProduction();
+                wealthGenerated += star.state.wealthProduction;
             });
-            empire.setWealth(empire.getWealth() + wealthGenerated);
+            empire.state.wealth += wealthGenerated;
         });
     }
     initGalaxy(generationMethod: string) {
-        this.starList = [];
+        this.starList = new Map<string, Star>();
         switch (generationMethod) {
             case "test":
                 var gsize = galaxySize.get(this.state.size);
@@ -197,10 +233,10 @@ export class Galaxy extends Room<GalaxyState> {
                 }
                 for (let i = 10; i < gsize; i+= 10) {
                     for (let j = 10; j < gsize; j+= 10) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", j, i, 100, 0, 0));
+                        const id = this.idGenerator();
+                        this.starList.set(id, new Star(new StarState(), id, "Star " + this.starList.size, "", j, i, 100, 0, 0));
                     }
                 }
-                this.assignCoreStars();
                 break;
             default:
                 var gsize = galaxySize.get(this.state.size);
@@ -213,67 +249,273 @@ export class Galaxy extends Room<GalaxyState> {
                     var x: number = Math.round(Math.random() * gsize);
                     var y: number = Math.round(Math.random() * gsize);
                     var notTooClose: boolean = true;
-                    for (let j = 0; j < this.starList.length; j++) {
-                        var distance = Math.sqrt(Math.pow(x - this.starList[j].getX(), 2) + Math.pow(y - this.starList[j].getY(), 2));
-                        if (distance < 5) {
+                    this.starList.forEach((star: Star) => {
+                        const distance = Math.sqrt(Math.pow(x - star.state.x, 2) + Math.pow(y - star.state.y, 2));
+                        if (distance < this.state.minimumDistanceBetweenStars) {
                             notTooClose = false;
-                            i--;
                         }
-                    }
+                    });
                     if (notTooClose) {
-                        this.starList.push(new Star(new StarState(), this.idGenerator(), "Star " + this.starList.length, "", x, y, 100, 0, 0));
+                        const id = this.idGenerator();
+                        this.starList.set(id, new Star(new StarState(), id, "Star " + this.starList.size, "", x, y, 100, 0, 0));
                     }
                 }
-                this.assignCoreStars();
                 break;
         }
+        this.assignCoreStars();
+        this.genStarVisibilityMap();
+        this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+            this.genPlayerStarView(playerViewState.sessionId);
+            this.genPlayerFleetView(playerViewState.sessionId);
+            this.clients.getById(playerViewState.sessionId)?.send("playerViewState", playerViewState);
+        });
     }
-    printMap() {
-        this.state.mapBlueprint.clear();
-        this.starList.forEach((star: Star) => {
-            const occupiedSpaceState = new OccupiedSpaceState();
-            occupiedSpaceState.x = star.getX();
-            occupiedSpaceState.y = star.getY();
-            if (star.getOwner()) {
-                occupiedSpaceState.owner = star.getOwner();
+    genStarVisibilityMap(empireId?: string) {
+        if (!empireId) {
+            this.starVisibilityMap.clear();
+            this.starList.forEach((star: Star) => {
+                if (star.state.owner !== "") {
+                    if (!this.starVisibilityMap.has(star.state.owner)) {
+                        this.starVisibilityMap.set(star.state.owner, [star.state.id]);
+                    }
+                    const playerOfEmpire = this.empireList.get(star.state.owner)?.state.ownerId;
+                    if (!playerOfEmpire) {
+                        let empList = "";
+                        this.empireList.forEach((value, key) => {
+                            empList += `${key}: ${value}\n`
+                        });
+                        console.error(`Player ID not found\nEmpire ID: ${star.state.owner}\nEmpire: ${this.empireList.get(star.state.owner)}\nEmpire Owner: ${this.empireList.get(star.state.owner)?.state.ownerId}\nEmpire List: ${empList}\nPlayer List: ${this.state.playerIdList}\nStar Visibility Map: ${this.starVisibilityMap}\nLocation: Galaxy.genStarVisibilityMap()`);
+                        return;
+                    }
+                    const starsInRange = this.listStarsInRange(star.state.id, playerOfEmpire);
+                    starsInRange.forEach((neighboringStar: Star) => {
+                        if (neighboringStar.state.owner !== star.state.owner) {
+                            this.starVisibilityMap.get(star.state.owner)!.push(neighboringStar.state.id);
+                        }
+                    });
+                }
+            });
+        }
+        else {
+            let empireStars = this.starVisibilityMap.get(empireId)
+            if (!empireStars) {
+                console.error(`Empire entry not found\nstarVisibilityMap: ${this.starVisibilityMap}\nEmpire ID: ${empireId}\nLocation: Galaxy.genStarVisibilityMap()`);
+                return
             }
-            occupiedSpaceState.type = "s";
-            if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\nStar: ${star.toString()}\nLocation: Galaxy.printMap(), 1`);
-              }
-            this.state.mapBlueprint.push(occupiedSpaceState);
-        });
+            empireStars = [];
+            this.starList.forEach((star: Star) => {
+                if (star.state.owner === empireId) {
+                    empireStars.push(star.state.id);
+                    const playerOfEmpire = this.empireList.get(empireId)?.state.ownerId;
+                    if (!playerOfEmpire) {
+                        console.error(`Player ID not found\nEmpire ID: ${empireId}\nPlayer List: ${this.state.playerIdList}\nLocation: Galaxy.genStarVisibilityMap()`);
+                        return;
+                    }
+                    const starsInRange = this.listStarsInRange(star.state.id, playerOfEmpire);
+                    starsInRange.forEach((neighboringStar: Star) => {
+                        if (neighboringStar.state.owner !== empireId) {
+                            empireStars.push(neighboringStar.state.id);
+                        }
+                    });
+                }
+            });
+            this.starVisibilityMap.set(empireId, empireStars);//Possibly Redundant?
+        }
+    }
+    genPlayerFleetView(clientId: string) {
+        
+        let playerViewState = this.playerViewStateList.get(clientId);
+        if (!playerViewState) {
+            console.error(`Player view state not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        }
+        let empireId = this.playerToEmpireList.get(clientId);
+        if (!empireId) {
+            console.error(`Empire ID not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        }
+        let empire = this.empireList.get(empireId);
+        if (!empire) {
+            console.error(`Empire not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        }
+        let fleets: Fleet[] = [];
         this.fleetList.forEach((fleet: Fleet) => {
-            var coords = this.approximateCoordinates(fleet);
-            const occupiedSpaceState = new OccupiedSpaceState();
-            occupiedSpaceState.x = coords.x;
-            occupiedSpaceState.y = coords.y;
-            occupiedSpaceState.type = "f";
-            if (isNaN(occupiedSpaceState.x) || isNaN(occupiedSpaceState.y)) {
-                console.error(`❌ NaN found! ${occupiedSpaceState.x},${occupiedSpaceState.y}\nFleet: ${fleet.toString()}\nLocation: Galaxy.printMap(), 2`);
-              }
-            this.state.mapBlueprint.push(occupiedSpaceState);
+            if (fleet.state.owner === empire.state.id) {
+                fleets.push(fleet);
+            }
         });
-
+        
+        playerViewState.fleetList.clear();
+        fleets.forEach((fleet: Fleet) => {
+            playerViewState.fleetList.push(fleet.state);
+        });
+        this.clients.getById(clientId)?.send("playerViewState", playerViewState);
+    }
+    genPlayerStarView(clientId: string) {
+        let playerViewState = this.playerViewStateList.get(clientId);
+        if (!playerViewState) {
+            console.error(`Player view state not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        }
+        let empireId = this.playerToEmpireList.get(clientId);
+        if (!empireId) {
+            console.error(`Empire ID not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        }
+        let empire = this.empireList.get(empireId);
+        if (!empire) {
+            console.error(`Empire not found\nClient ID: ${clientId}\n Location: Galaxy.updateMap()`);
+            return;
+        } // End of Retreiving variables; Actual Logic Below
+        switch (this.state.visibilityLevel) {
+            case 1:
+                playerViewState.starList.clear();
+                if (this.starVisibilityMap.has(empire.state.id)) {
+                    this.starVisibilityMap.get(empire.state.id)!.forEach((starId: string) => {
+                        let star = this.starList.get(starId);
+                        if (!star) {
+                            console.error(`Star not found\nStar ID: ${starId}\nStar List: ${this.starList}\n Location: Galaxy.genPlayerStarView()`);
+                            return;
+                        }
+                        if (star.state.owner === empire.state.id) {
+                            playerViewState.starList.push(star.state);
+                        } else {
+                            const starState = new StarState
+                            starState.id = star.state.id;
+                            starState.name = star.state.name;
+                            starState.owner = star.state.owner;
+                            starState.x = star.state.x;
+                            starState.y = star.state.y;
+                            starState.wealthProduction = -1;
+                            starState.factoryCount = -1;
+                            starState.shipCount = -1;
+                            playerViewState.starList.push(starState);
+                        }
+                    });
+                } else {
+                    console.error(`Star visibility map not found\nEmpire ID: ${empire.state.id}\nStar Visibility Map: ${this.starVisibilityMap}\n Location: Galaxy.genPlayerStarView()`);
+                }
+                break;
+            default:
+                console.log(`Visibility level ${this.state.visibilityLevel} not implemented`);
+                break;
+        }
+        this.clients.getById(clientId)?.send("playerViewState", playerViewState);
+    }
+    updatePlayersStarView(change: string, data: any) { //STILL NEEDS WORK in other methods/places to make sure it calls this
+        /*
+        updatePlayersStarView is not supposed to responsible to updating the master StarList
+        It is not expected to do that for anything other than the starVisibilityMap and playerViewStateList
+        playerViewStateList is updated either in this method if it is a simple change or this method
+        will update the starVisibilityMap and call genPlayerStarView to update the playerViewStateList
+        for specifically only the players who see the given star.
+        */
+        switch (change) {
+            case "capture":
+                let attacker = this.empireList.get(data.attackerId);
+                let defender = this.empireList.get(data.defenderId);
+                if (!attacker || !defender) {
+                    console.error(`Empire not found\nAttacker ID: ${data.attackerId}\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()`);
+                    return;
+                }
+                let attackerVis = this.starVisibilityMap.get(attacker.state.id);
+                let defenderVis = this.starVisibilityMap.get(defender.state.id);
+                if (!attackerVis) {
+                    this.starVisibilityMap.set(attacker.state.id, [data.starId]);
+                }
+                this.listStarsInRange(data.starId, attacker.state.ownerId).forEach((star: Star) => {
+                    if (!this.starVisibilityMap.get(attacker.state.id)!.includes(star.getId())) {
+                        this.starVisibilityMap.get(attacker.state.id)!.push(star.getId());
+                    }
+                });
+                if (!defenderVis) {
+                    console.error(`Defender visibility map not found while getting Star Taken\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()\nStar ID: ${data.starId}`);
+                    return;
+                } //We haven't touched the defender's visibility map during the battle unfolding process yet, so the vis map still thinks the defender owns this. So if this doesn't exist something is wrong with making sure owned stars are on their owner's list in the vis map.
+                this.listStarsInRange(data.starId, defender.state.ownerId).forEach((star: Star) => {
+                    let lineage = false;
+                    this.listStarsInRange(star.state.id, defender.state.ownerId).forEach((degree2SepStar: Star) => {
+                        if (degree2SepStar.state.owner === defender.state.id) {
+                            lineage = true;
+                        }
+                    });
+                    if (!lineage) {
+                        defenderVis = defenderVis!.filter((starId: string) => {
+                            if (starId !== star.state.id) {
+                                return true;
+                            }
+                            return false;
+                        });
+                    }
+                });
+                break;
+            case "destroy":
+                this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                    let newStarList = playerViewState.starList.filter((star: StarState) => {
+                        if (star.id === data.starId) {
+                            return false;
+                        }
+                        return true;
+                    });
+                    playerViewState.starList.clear();
+                    playerViewState.starList.push(...newStarList);
+                });
+                this.starVisibilityMap.forEach((value: string[], key: string) => {
+                    if (value.includes(data.starId)) {
+                        this.starVisibilityMap.get(key)!.splice(value.indexOf(data.starId), 1);
+                    }
+                });
+                break;
+            case "rename":
+                if (!this.starList.has(data.starId)) {
+                    console.error(`Star ${data.starId} not found in Star List ${this.starList}\nTrying to rename star`);
+                    return;
+                }
+                if (data.empireId !== this.starList.get(data.starId)!.state.owner) {
+                    console.error(`Empire ${data.empireId} does not own star ${data.starId}\nTrying to rename star`);
+                    return;
+                }
+                this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                    playerViewState.starList.forEach((state: StarState) => {
+                        if (state.id === data.starId && state.name !== "???") {
+                            state.name = data.name;
+                        }
+                    });
+                });
+                break;
+            case "rangeChange":
+                this.genStarVisibilityMap(data.empireId);
+                this.genPlayerStarView(data.clientId);
+                break;
+            case "shipCountChange":
+                this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                    playerViewState.starList.forEach((star: StarState) => {
+                        if (star.id === data.starId && star.shipCount !== -1) {
+                            star.shipCount = data.shipCount;
+                        }
+                    });
+                });
+                break;
+            case "positionChange":
+                this.genStarVisibilityMap();
+                this.state.playerIdList.forEach((playerId: string) => {
+                    this.genPlayerStarView(playerId);
+                });
+                break;
+            default:
+                console.log(`Update type unknown or not implemented: ${change}\nData: ${data}`);
+                break;
+        }
     }
     approximateCoordinates(fleet: Fleet): {x: number, y: number} {
         var x: number = -1;
         var y: number = -1;
         var percentDone = (this.state.clockTime - fleet.getStartTime()) / (fleet.getEndTime() - fleet.getStartTime());
-        var sourceStar = this.starList.find((star: Star) => {
-            if (star.getId() === fleet.getSourceStarId()) {
-                return true;
-            }
-            return false;
-        });
-        var destinationStar = this.starList.find((star: Star) => {
-            if (star.getId() === fleet.getDestinationStarId()) {
-                return true;
-            }
-            return false;
-        });
+        var sourceStar = this.starList.get(fleet.getSourceStarId());
+        var destinationStar = this.starList.get(fleet.getDestinationStarId());
         if (!sourceStar || !destinationStar) {
-            console.error(`Source or destination star not found\nSource Star ID: ${fleet.getSourceStarId()}\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.approximateCoordinates()`);
+            console.error(`Source or destination star not found\nSource Star ID: ${fleet.getSourceStarId()}\nDestination Star ID: ${fleet.getDestinationStarId()}\nFleet: ${fleet.toString("true")}\n Location: Galaxy.approximateCoordinates()`);
             return {x: x, y: y};
         }
         x = Math.round(sourceStar.getX() + (destinationStar.getX() - sourceStar.getX()) * percentDone);
@@ -283,106 +525,93 @@ export class Galaxy extends Room<GalaxyState> {
     assignCoreStars() {
         this.empireList.forEach((empire: Empire) => {
             var foundStar: boolean = false;
+            var keys = Array.from(this.starList.keys());
             while (foundStar === false) {
-                var randomstar = this.starList[Math.floor(Math.random() * this.starList.length)];
+                var randomstar = this.starList.get(keys[Math.floor(Math.random() * keys.length)]);
                 if (!randomstar) {
                     console.error("Random star not found\n Location: Galaxy.assignCoreStars()");
                     break;
                 }
-                if (!randomstar.getOwner()) {
+                if (!randomstar.state.owner) {
                     foundStar = true;
-                    randomstar.setOwner(empire.getId());
+                    randomstar.state.owner = empire.state.id;
                 }
             }
         });
     }
     distanceBetweenStars(sourceStarId: string, destinationStarId: string): number {
-        var twoStars: Star[] = this.starList.filter((star: Star) => {
-            if (star.getId() === sourceStarId || star.getId() === destinationStarId) {
-                return true;
-            }
-            return false;
-        });
-        if (!twoStars[0] || !twoStars[1]) {
+        var sourceStar = this.starList.get(sourceStarId);
+        var destinationStar = this.starList.get(destinationStarId);
+        if (!sourceStar || !destinationStar) {
             console.error(`\nSource or destination star not found\n Source Star Id: ${sourceStarId}\n Destination Star Id: ${destinationStarId}`);
-            return 1000000000000000;
+            return -1;
         }
-        return Math.sqrt(Math.pow(twoStars[0].getX() - twoStars[1].getX(), 2) + Math.pow(twoStars[0].getY() - twoStars[1].getY(), 2));
+        return Math.sqrt(Math.pow(sourceStar.getX() - destinationStar.getX(), 2) + Math.pow(sourceStar.getY() - destinationStar.getY(), 2));
     }
     fleetEndTimeCalculator(clockTime: number, distance: number, owner: string): number {
-        var fleetEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getId() === owner) {
-                return true;
-            }
-            return false;
-        });
+        var fleetEmpire = this.empireList.get(owner);
         if (!fleetEmpire) {
             console.error(`\nEmpire of Fleet not found\nOwner ID: ${owner}\n Location: Galaxy.fleetEndTimeCalculator()`);
             return clockTime + distance;
         }
-        return clockTime + distance/startingRange * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.getSpeed() + 9) / 10);
+        return clockTime + distance/this.state.startingRange * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10);
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, clientId: string) {
-        var empire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
-        if (empire) {
-        this.fleetList.push(new Fleet(new FleetState(), this, this.idGenerator(), empire.getId(), sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), empire.getId())));
-        }
-    }
-    renameStar(id: string, name: string, owner: string) {
-        this.starList.forEach((star: Star) => {
-            if (star.getId() === id && star.getOwner() === owner) {
-                star.setName(name);
-            }
-        });
-    }
-    destroyFleet(id: string) {
-        this.fleetList = this.fleetList.filter((fleet: Fleet) => {
-            return fleet.getId() !== id;
-        });
-    }
-    fleetArrive(fleet: Fleet) {
-        var star = this.starList.find((star2: Star) => {
-            return star2.getId() === fleet.getDestinationStarId();
-        });
-        if (!(star instanceof Star)) {
-            console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.fleetArrive(), 1`);
+        var empireId = this.playerToEmpireList.get(clientId);
+        if (!empireId) {
+            console.error(`\nEmpire of Fleet not found\nOwner ID: ${clientId}\n Location: Galaxy.createFleet()`);
             return;
         }
-        if (star.getOwner() === fleet.getOwner()) {
-            star.setShipCount(star.getShipCount() + fleet.getShips());
+        const fleetId = this.idGenerator();
+        this.fleetList.set(fleetId, new Fleet(new FleetState(), this, fleetId, empireId, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), empireId)));
+    }
+    renameStar(id: string, name: string, owner: string) {
+        var star = this.starList.get(id);
+        if (!star) {
+            console.error(`\nStar not found\nStar ID: ${id}\nLocation: Galaxy.renameStar()\nOwner ID: ${owner}`);
+            return;
+        }
+        if (star.state.owner !== owner) {
+            console.error(`\nStar not owned by empire\nStar ID: ${id}\nStar Owner ID: ${star.state.owner}\nOwner ID: ${owner}\nLocation: Galaxy.renameStar()`);
+            return;
+        }
+        star.state.name = name;
+    }
+    destroyFleet(id: string) {
+        this.fleetList.delete(id);
+    }
+    fleetArrive(fleet: Fleet) {
+        var star = this.starList.get(fleet.state.destinationStarId);
+        if (!star) {
+            console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.state.destinationStarId}\nStar List: ${this.starList}\nLocation: Galaxy.fleetArrive(), 1`);
+            return;
+        }
+        if (star.state.owner === fleet.state.owner) {
+            star.state.shipCount += fleet.state.ships;
             this.destroyFleet(fleet.getId());
         }
         else {
             //Battle
-            var defenders = this.empireList.find((empire: Empire) => {
-                if (!star) {
-                    console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.getDestinationStarId()}\n Location: Galaxy.fleetArrive(), 2`);
-                    return false;
-                }
-                return empire.getOwnerId() === star.getOwner();
-            })
+            var defenders = this.empireList.get(star.state.owner);
             if (!defenders) {
-                star.setShipCount(fleet.getShips());
-                this.destroyFleet(fleet.getId());
-                star.setOwner(fleet.getOwner());
+                console.error(`\nDefender Empire not found\nOwner ID: ${star.state.owner}\nEmpire List: ${this.empireList}\nLocation: Galaxy.fleetArrive(), 2`);
                 return;
             }
-            var defendersBattlePower = defenders.getBattlePower();
-            var attackers = this.empireList.find((empire: Empire) => {
-                return empire.getOwnerId() === fleet.getOwner();
-            })
+            var attackers = this.empireList.get(fleet.state.owner);
             if (!attackers) {
-                console.error(`\nAttacker Empire not found\nOwner ID: ${fleet.getOwner()}\n Location: Galaxy.fleetArrive()`);
+                console.error(`\nAttacker Empire not found\nOwner ID: ${fleet.state.owner}\nEmpire List: ${this.empireList}\nLocation: Galaxy.fleetArrive(), 2`);
                 return;
             }
-            var attackersBattlePower = attackers.getBattlePower();
-            var defenderShips: number = star.getShipCount();
-            var attackerShips: number = fleet.getShips();
+            if (!defenders) {
+                star.state.shipCount = fleet.state.ships - star.state.shipCount;
+                this.destroyFleet(fleet.state.id);
+                star.state.owner = fleet.state.owner;
+                return;
+            }
+            var defendersBattlePower = defenders.state.battlePower;
+            var attackersBattlePower = attackers.state.battlePower;
+            var defenderShips: number = star.state.shipCount;
+            var attackerShips: number = fleet.state.ships;
             var difference: number = defenderShips * (1 + defendersBattlePower/10) - attackerShips * (1 + attackersBattlePower/10);
             var defenderWin: boolean = difference >= 0;
             var upsetChance: number;
@@ -422,13 +651,13 @@ export class Galaxy extends Room<GalaxyState> {
                 randomizedOutcome = randomizedOutcome * -1;
             }
             if (defenderWin) {
-                star.setShipCount((defenderShips - attackerShips * (1 + defendersBattlePower/10 - attackersBattlePower/10)) + randomizedOutcome);
-                this.destroyFleet(fleet.getId());
+                star.state.shipCount = (defenderShips - attackerShips * (1 + defendersBattlePower/10 - attackersBattlePower/10)) + randomizedOutcome;
+                this.destroyFleet(fleet.state.id);
             }
             else {
-                star.setOwner(fleet.getOwner());
-                star.setShipCount((attackerShips - defenderShips * (1 + attackersBattlePower/10 - defendersBattlePower/10)) + randomizedOutcome);
-                this.destroyFleet(fleet.getId());
+                star.state.owner = fleet.state.owner;
+                star.state.shipCount = (attackerShips - defenderShips * (1 + attackersBattlePower/10 - defendersBattlePower/10)) + randomizedOutcome;
+                this.destroyFleet(fleet.state.id);
             }
         }
     }
@@ -452,247 +681,222 @@ export class Galaxy extends Room<GalaxyState> {
         return this.state.id;
     }
     sendFleet(sourceStarId: string, destinationStarId: string, ships: number, clientId: string) {
-        var sourceStar = this.starList.find((star: Star) => {
-            if (star.getId() === sourceStarId) {
-                return true;
-            }
-            return false;
-        });
-        var destinationStar = this.starList.find((star: Star) => {
-            if (star.getId() === destinationStarId) {
-                return true;
-            }
-            return false;
-        });
+        var sourceStar = this.starList.get(sourceStarId);
+        var destinationStar = this.starList.get(destinationStarId);
         if (!sourceStar || !destinationStar) {
-            console.error(`\nSource or destination star not found\nSource Star ID: ${sourceStarId}\nDestination Star ID: ${destinationStarId}\n Location: Galaxy.sendFleet()`);
+            console.error(`\nSource or destination star not found\nSource Star ID: ${sourceStarId}\nDestination Star ID: ${destinationStarId}\nStar List: ${this.starList}\nLocation: Galaxy.sendFleet()`);
             return;
         }
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\nLocation: Galaxy.sendFleet()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.sendFleet()`);
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\nLocation: Galaxy.sendFleet()`);
             return;
         }
-        if (sourceStar.getOwner() !== clientEmpire.getId()) {
-            console.error(`\nSource star not owned by player\nOwner ID: ${sourceStar.getOwner()}\n Location: Galaxy.sendFleet()`);
+        if (sourceStar.state.owner !== clientEmpire.getId()) {
+            console.error(`\nSource star not owned by player\nOwner ID: ${sourceStar.state.owner}\n Location: Galaxy.sendFleet()`);
             return;
         }
-        if (sourceStar.getShipCount() < ships) {
-            console.error(`\nNot enough ships\nOwner ID: ${sourceStar.getShipCount()}\n Location: Galaxy.sendFleet()`);
+        if (sourceStar.state.shipCount < ships) {
+            console.error(`\nNot enough ships\nOwner ID: ${sourceStar.state.shipCount}\n Location: Galaxy.sendFleet()`);
             return;
         }
         var distance = this.distanceBetweenStars(sourceStarId, destinationStarId);
         var lightyears = distance/gridUnitsPerLightYear;
-        if (lightyears > clientEmpire.getRange()) {
-            console.error(`\nEmpire range doesn't reach ${lightyears} lightyears\nRange: ${clientEmpire.getRange()}\nOwner ID: ${clientEmpire.getId()}\n Location: Galaxy.sendFleet()`);
+        if (lightyears > clientEmpire.state.range) {
+            console.error(`\nEmpire range doesn't reach ${lightyears} lightyears\nRange: ${clientEmpire.state.range}\nEmpire: ${clientEmpire.toString("true")}\n Location: Galaxy.sendFleet()`);
             return;
         }
-        sourceStar.setShipCount(sourceStar.getShipCount() - ships);
+        sourceStar.state.shipCount -= ships;
         this.createFleet(sourceStarId, destinationStarId, ships, clientId);
     }
     buildFactory(starId: string, clientId: string) {
-        var star = this.starList.find((star: Star) => {
-            if (star.getId() === starId) {
-                return true;
-            }
-            return false;
-        });
+        var star = this.starList.get(starId);
         if (!star) {
             console.error(`\nStar not found\nStar ID: ${starId}\n Location: Galaxy.buildFactory()`);
             return;
         }
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.buildFactory()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
             console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.buildFactory()`);
             return;
         }
-        if (star.getOwner() !== clientEmpire.getId()) {
-            console.error(`\nStar not owned by player\nOwner ID: ${star.getOwner()}\n Location: Galaxy.buildFactory()`);
+        if (star.state.owner !== clientEmpire.state.ownerId) {
+            console.error(`\nStar not owned by player\nOwner ID: ${star.state.owner}\n Location: Galaxy.buildFactory()`);
             return;
         }
-        if (clientEmpire.getWealth() < clientEmpire.getFactoryCost()) {
-            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getFactoryCost()}\n Location: Galaxy.buildFactory()`);
+        if (clientEmpire.state.wealth < clientEmpire.state.factoryCost) {
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.state.wealth}\nCost: ${clientEmpire.state.factoryCost}\n Location: Galaxy.buildFactory()`);
             return;
         }
-        clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getFactoryCost());
-        star.setFactoryCount(star.getFactoryCount() + 1);
-        console.log(`\nFactory built on ${star.getName()} (${star.getId()}) for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.buildFactory()`);
+        clientEmpire.state.wealth -= clientEmpire.state.factoryCost;
+        star.state.factoryCount++;
+        console.log(`\nFactory built on ${star.state.name} (Id: ${star.state.id}) for ${clientEmpire.state.name} (Id: ${clientEmpire.state.ownerId})\nLocation: Galaxy.buildFactory()`);
     }
     upgradeSpeed(clientId: string) {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeSpeed()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
             console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeSpeed()`);
             return;
         }
-        if (clientEmpire.getWealth() < clientEmpire.getSpeedCost()) {
-            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getSpeedCost()}\n Location: Galaxy.upgradeSpeed()`);
+        if (clientEmpire.state.wealth < clientEmpire.state.speedCost) {
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.state.wealth}\nCost: ${clientEmpire.state.speedCost}\nEmpire: ${clientEmpire.toString("true")}\n Location: Galaxy.upgradeSpeed()`);
             return;
         }
-        clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getSpeedCost());
-        clientEmpire.setSpeed(clientEmpire.getSpeed() + 1);
-        clientEmpire.setSpeedCost(this.calculateSpeedCost(clientId));
-        console.log(`\nSpeed upgraded to ${clientEmpire.getSpeed()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeSpeed()`);
+        clientEmpire.state.wealth -= clientEmpire.state.speedCost;
+        clientEmpire.state.speed++;
+        clientEmpire.state.speedCost = this.calculateSpeedCost(clientId);
+        console.log(`\nSpeed upgraded to ${clientEmpire.state.speed} for ${clientEmpire.state.name} (Id: ${clientEmpire.state.ownerId})\nLocation: Galaxy.upgradeSpeed()`);
     }
     upgradeRange(clientId: string) {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeRange()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
             console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeRange()`);
             return;
         }
-        if (clientEmpire.getWealth() < clientEmpire.getRangeCost()) {
-            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getRangeCost()}\n Location: Galaxy.upgradeRange()`);
+        if (clientEmpire.state.wealth < clientEmpire.state.rangeCost) {
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.state.wealth}\nCost: ${clientEmpire.state.rangeCost}\n Location: Galaxy.upgradeRange()`);
             return;
         }
-        clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getRangeCost());
-        clientEmpire.setRange(clientEmpire.getRange() + 1);
-        clientEmpire.setRangeCost(this.calculateRangeCost(clientId));
-        console.log(`\nRange upgraded to ${clientEmpire.getRange()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeRange()`);
+        clientEmpire.state.wealth -= clientEmpire.state.rangeCost;
+        clientEmpire.state.range++;
+        clientEmpire.state.rangeCost = this.calculateRangeCost(clientId);
+        console.log(`\nRange upgraded to ${clientEmpire.state.range} for ${clientEmpire.state.name} (${clientEmpire.state.ownerId})\nLocation: Galaxy.upgradeRange()`);
     }
     upgradeBattlePower(clientId: string) {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeBattlePower()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
             console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.upgradeBattlePower()`);
             return;
         }
-        if (clientEmpire.getWealth() < clientEmpire.getBattlePowerCost()) {
-            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nCost: ${clientEmpire.getBattlePowerCost()}\n Location: Galaxy.upgradeBattlePower()`);
+        if (clientEmpire.state.wealth < clientEmpire.state.battlePowerCost) {
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.state.wealth}\nCost: ${clientEmpire.state.battlePowerCost}\n Location: Galaxy.upgradeBattlePower()`);
             return;
         }
-        clientEmpire.setWealth(clientEmpire.getWealth() - clientEmpire.getBattlePowerCost());
-        clientEmpire.setBattlePower(clientEmpire.getBattlePower() + 1);
-        clientEmpire.setBattlePowerCost(this.calculateBattlePowerCost(clientId));
-        console.log(`\nBattle Power upgraded to ${clientEmpire.getBattlePower()} for ${clientEmpire.getName()} (${clientEmpire.getId()})\nLocation: Galaxy.upgradeBattlePower()`);
+        clientEmpire.state.wealth -= clientEmpire.state.battlePowerCost;
+        clientEmpire.state.battlePower++;
+        clientEmpire.state.battlePowerCost = this.calculateBattlePowerCost(clientId);
+        console.log(`\nBattle Power upgraded to ${clientEmpire.state.battlePower} for ${clientEmpire.state.name} (Id: ${clientEmpire.state.ownerId})\nLocation: Galaxy.upgradeBattlePower()`);
     }
     calculateSpeedCost(clientId: string): number {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
-        if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateSpeedCost()`);
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateSpeedCost()`);
             return -1;
         }
-        var x  = clientEmpire.getSpeedCost();
+        var clientEmpire = this.empireList.get(clientEmpireId);
+        if (!clientEmpire) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateSpeedCost()`);
+            return -1;
+        }
+        var x  = clientEmpire.state.speedCost;
         return Math.pow(x, 1.1);
     }
     calculateRangeCost(clientId: string): number {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
-        if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateRangeCost()`);
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateRangeCost()`);
             return -1;
         }
-        var x  = clientEmpire.getRangeCost();
+        var clientEmpire = this.empireList.get(clientEmpireId);
+        if (!clientEmpire) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateRangeCost()`);
+            return -1;
+        }
+        var x  = clientEmpire.state.rangeCost;
         return Math.pow(x, 1.1);
     }
     calculateBattlePowerCost(clientId: string): number {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
-        if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.calculateBattlePowerCost()`);
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateBattlePowerCost()`);
             return -1;
         }
-        var x  = clientEmpire.getBattlePowerCost();
+        var clientEmpire = this.empireList.get(clientEmpireId);
+        if (!clientEmpire) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.calculateBattlePowerCost()`);
+            return -1;
+        }
+        var x  = clientEmpire.state.battlePowerCost;
         return Math.pow(x, 1.1);
     }
     sendWealth(amount: number, clientId: string, targetId: string) {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.sendWealth()`);
+            return;
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.sendWealth()`);
+            console.error(`\nClient empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.sendWealth()`);
             return;
         }
-        if (clientEmpire.getWealth() < amount) {
-            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.getWealth()}\nAmount: ${amount}\n Location: Galaxy.sendWealth()`);
+        if (clientEmpire.state.wealth < amount) {
+            console.error(`\nNot enough wealth\nWealth: ${clientEmpire.state.wealth}\nAmount: ${amount}\n Location: Galaxy.sendWealth()`);
             return;
         }
-        clientEmpire.setWealth(clientEmpire.getWealth() - amount);
-        var targetEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === targetId) {
-                return true;
-            }
-            return false;
-        });
+        var targetEmpire = this.empireList.get(targetId);
         if (!targetEmpire) {
             console.error(`\nTarget empire not found\nOwner ID: ${targetId}\n Location: Galaxy.sendWealth()`);
             return;
         }
-        targetEmpire.setWealth(targetEmpire.getWealth() + amount);
+        clientEmpire.state.wealth -= amount;
+        targetEmpire.state.wealth += amount;
     }
-    listStarsInRange(starId: string, clientId: string) {
-        var clientEmpire = this.empireList.find((empire: Empire) => {
-            if (empire.getOwnerId() === clientId) {
-                return true;
-            }
-            return false;
-        });
+    listStarsInRange(starId: string, clientId: string): Star[] {
+        var clientEmpireId = this.playerToEmpireList.get(clientId);
+        if (!clientEmpireId) {
+            console.error(`Client empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.listStarsInRange()`);
+            return [];
+        }
+        var clientEmpire = this.empireList.get(clientEmpireId);
         if (!clientEmpire) {
-            console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.listStarsInRange()`);
-            return;
+            console.error(`Client empire not found\nOwner ID: ${clientId}\nEmpire List: ${this.empireList}\n Location: Galaxy.listStarsInRange()`);
+            return [];
         }
-        var range = clientEmpire.getRange();
-        var star = this.starList.find((star: Star) => {
-            if (star.getId() === starId) {
-                return true;
-            }
-            return false;
-        });
+        var range = clientEmpire.state.range;
+        var star = this.starList.get(starId);
         if (!star) {
-            console.error(`\nStar not found\nStar ID: ${starId}\n Location: Galaxy.listStarsInRange()`);
-            return;
+            console.error(`Star not found\nStar ID: ${starId}\n Location: Galaxy.listStarsInRange()`);
+            return [];
         }
-        var starX = star.getX();
-        var starY = star.getY();
-        var starsInRange = this.starList.filter((star2: Star) => {
+        var starX = star.state.x;
+        var starY = star.state.y;
+        var starsInRange: Star[] = [];
+        this.starList.forEach((star2: Star) => {
             if (star2.getId() === starId) {
-                return false;
+            } else {
+                var distance = Math.sqrt(Math.pow(starX - star2.state.x, 2) + Math.pow(starY - star2.state.y, 2));
+                if (distance <= range) {
+                    starsInRange.push(star2);
+                }
             }
-            var distance = Math.sqrt(Math.pow(starX - star2.getX(), 2) + Math.pow(starY - star2.getY(), 2));
-            console.log(star2.getId() + ": " + distance);
-            return distance <= range;
         });
-        starsInRange.forEach((star: Star) => {
-            console.log(star.toString());
-        });
+        return starsInRange
     }
     sendDebugInfo(clientId: string) {
         let content1 = "";
@@ -712,13 +916,21 @@ export class Galaxy extends Room<GalaxyState> {
     }
     onJoin(client: Client, options: {empireName: string}) {
         this.state.playerIdList.push(client.sessionId);
+        const playerViewState = new PlayerViewState();
+        playerViewState.sessionId = client.sessionId;
+        client.send("playerViewState", playerViewState);
+        this.playerViewStateList.set(client.sessionId, playerViewState);
         if (options.empireName) {
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            const empireId = this.idGenerator();
+            this.empireList.set(empireId, new Empire(new EmpireState(), empireId, options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            this.playerToEmpireList.set(client.sessionId, empireId);
         }
         else {
             console.error(`\nNo empire name provided\nOwner ID: ${client.sessionId}\n Location: Galaxy.onJoin()`);
-            this.empireList.push(new Empire(new EmpireState(), this.idGenerator(), "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            const empireId = this.idGenerator();
+            this.empireList.set(empireId, new Empire(new EmpireState(), empireId, "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+            this.playerToEmpireList.set(client.sessionId, empireId);
         }
-        client.send("yourIDs", {Id: client.sessionId, empireId: this.empireList[this.empireList.length - 1].getId()});
+        client.send("yourIDs", {Id: client.sessionId, empireId: this.playerToEmpireList.get(client.sessionId)});
     }
 }

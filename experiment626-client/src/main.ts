@@ -2,6 +2,7 @@ import { GalaxyState } from "./colyseusTypes/GalaxyState";
 import { Client, Room } from "colyseus.js";
 import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
+import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
 
 // ===== HTML ELEMENTS =====
 const statusEl = document.getElementById("status")!;
@@ -22,6 +23,10 @@ let showDebug = true;
 const client = new Client("ws://localhost:5111");
 let sessionId = "";
 let empireId = "";
+let playerViewState: PlayerViewState | null = null;
+let galaxyState: GalaxyState | null = null;
+let pixiApp: PIXI.Application | null = null;
+let galaxyUnits = 1;
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -32,9 +37,8 @@ const galaxySize = new Map<string, number>([
 ]);
 
 // ===== CAMERA STATE =====
-let gridUnitCameraCenterX = 0;
-let gridUnitCameraCenterY = 0;
 let zoom = 1;
+let fitZoom = 1;
 
 // ===== COMMAND INPUT STRUCTURES =====
 const commandParams: Record<string, string[]> = {
@@ -46,10 +50,16 @@ const commandParams: Record<string, string[]> = {
     listEmpires: ["verbose"],
     sendFleet: ["sourceStarId", "destinationStarId", "ships"],
     buildFactory: ["starId"],
+    upgradeSpeed: [],
+    upgradeRange: [],
+    upgradeBattlePower: [],
     sendWealth: ["amount", "targetId"],
     init: ["generationMethod"],
     listStarsInRange: ["starId"],
-    addClockTime: ["amount"]
+    addClockTime: ["amount"],
+    listStarVisibilityMap: [],
+    listPlayersStarView: [],
+    listPlayersFleetView: []
 };
 
 const commandParamTypes: Record<string, Record<string, "string" | "number">> = {
@@ -61,12 +71,25 @@ const commandParamTypes: Record<string, Record<string, "string" | "number">> = {
     listEmpires: { verbose: "string" },
     sendFleet: { sourceStarId: "string", destinationStarId: "string", ships: "number" },
     buildFactory: { starId: "string" },
+    upgradeSpeed: {},
+    upgradeRange: {},
+    upgradeBattlePower: {},
     sendWealth: { amount: "number", targetId: "string" },
     init: { generationMethod: "string" },
     listStarsInRange: { starId: "string" },
-    addClockTime: { amount: "number" }
+    addClockTime: { amount: "number" },
+    listStarVisibilityMap: {},
+    listPlayersStarView: {},
+    listPlayersFleetView: {}
 };
-
+// ===== POPULATE COMMAND DROPDOWN =====
+const commands = Object.keys(commandParams).sort();
+for (const command of commands) {
+    const option = document.createElement("option");
+    option.value = command;
+    option.textContent = command;
+    commandSelect.appendChild(option);
+}
 // ===== MAIN =====
 if (!window.location.hash || window.location.hash === "#lobby") {
     showLandingPage(client);
@@ -81,37 +104,42 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         const mapDisplay = document.getElementById("mapDisplay");
         if (!mapDisplay) return;
 
-        let pixiApp: PIXI.Application | null = null;
-        let galaxyUnits = galaxySize.get(room.state.size) || 100;
+        galaxyUnits = galaxySize.get(room.state.size) || 100;
 
         room.onStateChange(async (state: GalaxyState) => {
+            galaxyUnits = galaxySize.get(state.size) || 100;
+            galaxyState = state;
+        
             if (!pixiInitialized) {
                 pixiInitialized = true;
-                gridUnitCameraCenterX = galaxyUnits / 2;
-                gridUnitCameraCenterY = galaxyUnits / 2;
-
                 await PIXI.Assets.load([
-                  "assets/star.png",
-                  "assets/fleet.png"
+                    "assets/star.png",
+                    "assets/fleet.png"
                 ]);
-
+        
                 pixiApp = await createPixiApp(mapDisplay);
-                setupCameraControls(pixiApp, galaxyUnits);
+                setupCamera(pixiApp);
+        
+                // 🟢 Start the continuous render loop now that PIXI is ready
+                renderLoop();
             }
-            renderGalaxyState(state, pixiApp!, galaxyUnits);
         });
+        
 
         room.onMessage("*", (type, message) => {
-            console.log(`\nMessage Received: [${type}]`, message);
+            if (type != "debugInfo" && type != "playerViewState") {
+                console.log(`\nMessage Received: [${type}]`, message);
+            }
             if (type === "yourIDs") {
                 sessionId = message.Id;
                 empireId = message.empireId;
             }
-        });
-
-        room.onMessage("debugInfo", (data) => {
-            //console.log(`\nDebug Info Received:`, data);
-            updateDebugUI(data.content1, data.content2, data.content3);
+            if (type === "playerViewState") {
+                playerViewState = message;
+            }
+            if (type === "debugInfo") {
+                updateDebugUI(message.content1, message.content2, message.content3);
+            }
         });
 
         room.onError((err) => console.error("Room Error:", err));
@@ -228,11 +256,40 @@ if (!window.location.hash || window.location.hash === "#lobby") {
 }
 
 // ===== PIXI UTILITIES =====
+/*
+PIXI JS Plan
+So Pixi JS has its own coordinate plane, that it already knows how to zoom, and how to pan on.
+The view is defined from the top left corner with position.x and y. 
+The end points to the right and going down is equal to
+the renderer.width (or height) divided by stage.scale.
+No more need for galaxy units to Pixels, PIXI JS already does this stuff for us,
+as in it does the zooming and the rendering/derending during camera movement
+so we don't need to figure out which galaxy units it can see,
+we just treat its coordinate plane as though it is the galaxy units coordinate plane.
+We put all the stars at sprite.x = star.x, easy as that.
+Then we set the default/minimum zoom to the amount that would make
+the camera see exactly all the galaxy units and no more
+Then we have a max zoom in of course, but that is fixed, irrelevant of how big the galaxy is.
+When we PAN, while we have to still update camera positions,
+PIXI JS will do all the rendering/unrendering for the stars that are coming and leaving.
+When Zooming we still need it to track your mouse,
+so we will first do the actual stage.scale change next value calculation
+and then knowing the way PIXI JS calculates how much is in view,
+we can do that calculation, renderer.width over stage.scale,
+then take half that and subtract it from the current mouse position
+for that to be the new stage.position.x / y.
+For Zooming Out, you want to add guardrails that lock the new camera width
+to the Galaxy Size of course. But keeping it as close as possible to the original point.
+Panning is much of the same though still, because we just track the mouse,
+then track the delta change from where they clicked and are dragging to where the mouse is now,
+and we apply that change,
+capped out at the maximum amount that won't push any of the camera view out of bounds for the GalaxySize.
+*/
 async function createPixiApp(container: HTMLElement): Promise<PIXI.Application> {
     container.innerHTML = ""; // inside createPixiApp
     const app = new PIXI.Application();
     await app.init({
-        width: 900,
+        width: 800,
         height: 800,
         backgroundColor: 0x181828,
         antialias: true,
@@ -243,157 +300,137 @@ async function createPixiApp(container: HTMLElement): Promise<PIXI.Application> 
     return app;
 }
 
-function setupCameraControls(app: PIXI.Application, galaxySize: number) {
-    const viewWidth = app.renderer.width;
-    const viewHeight = app.renderer.height;
-    let dragging = false;
-    let lastMouse = { x: 0, y: 0 };
-    let pendingPan = { dx: 0, dy: 0 };
-    let grabWorld = { x: 0, y: 0 };
+function setupCamera(app: PIXI.Application) {
+    // Set initial fitZoom to fit entire galaxy
+    const fitZoomX = app.renderer.width / galaxyUnits;
+    const fitZoomY = app.renderer.height / galaxyUnits;
+    fitZoom = Math.min(fitZoomX, fitZoomY);
+    zoom = fitZoom;
+    app.stage.scale.set(zoom);
+
+    // Set Stage View Top Left Corner to 0,0, its width should be app.renderer.width / app.stage.scale
+    app.stage.position.x = 0;
+    app.stage.position.y = 0;
 
     app.view.addEventListener("wheel", (e) => {
-      e.preventDefault();
-        
-      const rect = app.view.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+        e.preventDefault();
+        const rect = app.view.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
-      const unitsVisibleX = galaxySize / zoom;
-      const unitsVisibleY = galaxySize / zoom;
-      const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
-      const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
+        // World coordinates under mouse
+        const worldX = (mouseX - app.stage.position.x) / app.stage.scale.x;
+        const worldY = (mouseY - app.stage.position.y) / app.stage.scale.y;
 
-      // World coords under cursor before zoom
-      const worldXBefore = minX + (mouseX / viewWidth) * unitsVisibleX;
-      const worldYBefore = minY + (mouseY / viewHeight) * unitsVisibleY;
+        const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        let newZoom = zoom * scaleFactor;
+        newZoom = Math.max(fitZoom, Math.min(20, newZoom));
 
-      // Apply zoom
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      zoom *= zoomFactor;
-      zoom = Math.max(1, Math.min(10, zoom));
+        // Keep world point under mouse stationary
+        app.stage.position.x -= (worldX * newZoom - worldX * zoom);
+        app.stage.position.y -= (worldY * newZoom - worldY * zoom);
+        zoom = newZoom;
+        app.stage.scale.set(zoom);
 
-      // Units visible after zoom
-      const newUnitsVisibleX = galaxySize / zoom;
-      const newUnitsVisibleY = galaxySize / zoom;
-      const newMinX = gridUnitCameraCenterX - newUnitsVisibleX / 2;
-      const newMinY = gridUnitCameraCenterY - newUnitsVisibleY / 2;
-
-      // World coords under cursor after zoom
-      const worldXAfter = newMinX + (mouseX / viewWidth) * newUnitsVisibleX;
-      const worldYAfter = newMinY + (mouseY / viewHeight) * newUnitsVisibleY;
-
-      // Adjust camera to keep point under cursor fixed
-      gridUnitCameraCenterX += (worldXBefore - worldXAfter);
-      gridUnitCameraCenterY += (worldYBefore - worldYAfter);
+        // Clamp stage position so galaxy never moves out of bounds
+        const viewWidth = app.renderer.width;
+        const viewHeight = app.renderer.height;
+        const scaledGalaxyWidth = galaxyUnits * zoom;
+        const scaledGalaxyHeight = galaxyUnits * zoom;
+        let minX, maxX, minY, maxY;
+        if (scaledGalaxyWidth > viewWidth) {
+            minX = viewWidth - scaledGalaxyWidth;
+            maxX = 0;
+        } else {
+            minX = maxX = (viewWidth - scaledGalaxyWidth) / 2;
+        }
+        if (scaledGalaxyHeight > viewHeight) {
+            minY = viewHeight - scaledGalaxyHeight;
+            maxY = 0;
+        } else {
+            minY = maxY = (viewHeight - scaledGalaxyHeight) / 2;
+        }
+        app.stage.position.x = Math.min(maxX, Math.max(minX, app.stage.position.x));
+        app.stage.position.y = Math.min(maxY, Math.max(minY, app.stage.position.y));
     });
 
+    let dragging = false;
+    let lastX = 0, lastY = 0;
     app.view.addEventListener("mousedown", (e) => {
         dragging = true;
-        const rect = app.view.getBoundingClientRect();
-        lastMouse.x = e.clientX - rect.left;
-        lastMouse.y = e.clientY - rect.top;
-
-        const unitsVisibleX = galaxySize / zoom;
-        const unitsVisibleY = galaxySize / zoom;
-        const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
-        const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
-
-        grabWorld.x = minX + (lastMouse.x / app.renderer.width) * unitsVisibleX;
-        grabWorld.y = minY + (lastMouse.y / app.renderer.height) * unitsVisibleY;
+        lastX = e.clientX;
+        lastY = e.clientY;
     });
     app.view.addEventListener("mouseup", () => dragging = false);
     app.view.addEventListener("mouseleave", () => dragging = false);
     app.view.addEventListener("mousemove", (e) => {
-        if (dragging) {
-          const rect = app.view.getBoundingClientRect();
-          const currentMouseX = e.clientX - rect.left;
-          const currentMouseY = e.clientY - rect.top;
-  
-          const unitsVisibleX = galaxySize / zoom;
-          const unitsVisibleY = galaxySize / zoom;
-          const minX = gridUnitCameraCenterX - unitsVisibleX / 2;
-          const minY = gridUnitCameraCenterY - unitsVisibleY / 2;
-  
-          const currentWorldX = minX + (currentMouseX / app.renderer.width) * unitsVisibleX;
-          const currentWorldY = minY + (currentMouseY / app.renderer.height) * unitsVisibleY;
-  
-          const deltaX = grabWorld.x - currentWorldX;
-          const deltaY = grabWorld.y - currentWorldY;
-  
-          pendingPan.dx += deltaX;
-          pendingPan.dy += deltaY; 
+        if (!dragging) return;
+        if (zoom === fitZoom) return; // disable panning when fully zoomed out
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        const viewWidth = app.renderer.width;
+        const viewHeight = app.renderer.height;
+        const scaledGalaxyWidth = galaxyUnits * zoom;
+        const scaledGalaxyHeight = galaxyUnits * zoom;
+        let minX, maxX, minY, maxY;
+        if (scaledGalaxyWidth > viewWidth) {
+            minX = viewWidth - scaledGalaxyWidth;
+            maxX = 0;
+        } else {
+            minX = maxX = (viewWidth - scaledGalaxyWidth) / 2;
         }
-    });
-    app.ticker.add(() => {
-        if (pendingPan.dx !== 0 || pendingPan.dy !== 0) {
-            gridUnitCameraCenterX += pendingPan.dx;
-            gridUnitCameraCenterY += pendingPan.dy;
-            pendingPan.dx = 0;
-            pendingPan.dy = 0;
+        if (scaledGalaxyHeight > viewHeight) {
+            minY = viewHeight - scaledGalaxyHeight;
+            maxY = 0;
+        } else {
+            minY = maxY = (viewHeight - scaledGalaxyHeight) / 2;
         }
+        app.stage.position.x = Math.min(maxX, Math.max(minX, app.stage.position.x + dx));
+        app.stage.position.y = Math.min(maxY, Math.max(minY, app.stage.position.y + dy));
     });
 }
 
-function renderGalaxyState(state: GalaxyState, app: PIXI.Application | null, galaxySize: number) {
-  if (!app) return;
-  const stage = app.stage;
+
+function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXI.Application | null, galaxySize: number) {
+    if (!app) return;
+    const stage = app.stage;
     stage.removeChildren();
-    if (zoom < 1) {
-        console.log("Zoom is less than 1; Invalid value");
-        zoom = 1;
-    }
-    if (gridUnitCameraCenterX < 0 || gridUnitCameraCenterY < 0 || gridUnitCameraCenterX > galaxySize || gridUnitCameraCenterY > galaxySize) {
-        console.log(`Camera is out of bounds: X: ${gridUnitCameraCenterX}, Y: ${gridUnitCameraCenterY}\nGalaxy Size: ${galaxySize}`);
-        return;
-    }
-    const viewWidth = app.renderer.width;
-    const viewHeight = app.renderer.height;
-    const unitsVisibleX = galaxySize / zoom;
-    const unitsVisibleY = galaxySize / zoom;
-    const halfUnitsVisibleX = unitsVisibleX / 2;
-    const halfUnitsVisibleY = unitsVisibleY / 2;
-    if (gridUnitCameraCenterX - halfUnitsVisibleX < 0) {
-        gridUnitCameraCenterX = halfUnitsVisibleX;
-    }
-    if (gridUnitCameraCenterY - halfUnitsVisibleY < 0) {
-        gridUnitCameraCenterY = halfUnitsVisibleY;
-    }
-    if (gridUnitCameraCenterX + halfUnitsVisibleX > galaxySize) {
-        gridUnitCameraCenterX = galaxySize - halfUnitsVisibleX;
-    }
-    if (gridUnitCameraCenterY + halfUnitsVisibleY > galaxySize) {
-        gridUnitCameraCenterY = galaxySize - halfUnitsVisibleY;
-    }
-    const pixelsPerUnitX = viewWidth / unitsVisibleX;
-    const pixelsPerUnitY = viewHeight / unitsVisibleY;
-    const minX = gridUnitCameraCenterX - halfUnitsVisibleX;
-    const maxX = gridUnitCameraCenterX + halfUnitsVisibleX;
-    const minY = gridUnitCameraCenterY - halfUnitsVisibleY;
-    const maxY = gridUnitCameraCenterY + halfUnitsVisibleY;
 
-    for (const space of state.mapBlueprint) {
-        if (space.x >= minX && space.x <= maxX && space.y >= minY && space.y <= maxY) {
-        const screenX = (space.x - minX) * pixelsPerUnitX;
-        const screenY = (space.y - minY) * pixelsPerUnitY;
-        let sprite;
-        if (space.type === "s") {
-            sprite = PIXI.Sprite.from('assets/star.png');
-        } else if (space.type === "f") {
-            sprite = PIXI.Sprite.from('assets/fleet.png');
-        }
-        if (!sprite) {
-          console.error ('Sprite is undefined\nspace.type = ' + space.type);
-          return;
-        }
-        sprite.width = 10 * zoom;
-        sprite.height = 10 * zoom;
+    // Place stars at galaxy coordinates directly
+    viewState.starList.forEach(star => {
+        const sprite = PIXI.Sprite.from('assets/star.png');
+        sprite.width = 2; // fixed size in galaxy units
+        sprite.height = 2;
         sprite.anchor.set(0.5);
-        sprite.x = screenX;
-        sprite.y = screenY;
+        sprite.x = star.x;
+        sprite.y = star.y;
         stage.addChild(sprite);
-        }
-    }
+    });
+
+    // Draw Fleets with smooth interpolation
+    viewState.fleetList.forEach(fleet => {
+        const sourceStar = viewState.starList.find(s => s.id === fleet.sourceStarId);
+        const destinationStar = viewState.starList.find(s => s.id === fleet.destinationStarId);
+        if (!sourceStar || !destinationStar) return;
+
+        const percentDone = (galaxyState.clockTime - fleet.startTime) / (fleet.endTime - fleet.startTime);
+        const clampedPercent = Math.max(0, Math.min(1, percentDone));
+
+        const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
+        const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
+
+        const sprite = PIXI.Sprite.from('assets/fleet.png');
+        sprite.width = 2;
+        sprite.height = 2;
+        sprite.anchor.set(0.5);
+        sprite.x = fleetX;
+        sprite.y = fleetY;
+        stage.addChild(sprite);
+    });
 }
+
 
 // ===== DEBUG UI =====
 function updateDebugUI(panel1: string, panel2: string, panel3: string) {
@@ -409,4 +446,10 @@ function updateDebugUI(panel1: string, panel2: string, panel3: string) {
         debugPanel2.style.display = "none";
         debugPanel3.style.display = "none";
     }
+}
+function renderLoop() {
+    if (pixiApp && playerViewState && galaxyState) {
+        renderPlayerViewState(galaxyState, playerViewState, pixiApp, galaxyUnits);
+    }
+    requestAnimationFrame(renderLoop); // 🟢 Calls itself repeatedly, 60fps
 }
