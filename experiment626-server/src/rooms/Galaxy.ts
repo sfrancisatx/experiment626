@@ -204,7 +204,10 @@ export class Galaxy extends Room<GalaxyState> {
     turn() {
         // Allocating the new ships to stars
         this.starList.forEach((star: Star) => {
-            star.setShipCount(star.getShipCount()+ star.getFactoryCount());
+            if (star.state.factoryCount > 0) {
+                star.state.shipCount += star.state.factoryCount;
+                this.updatePlayersStarView("shipCountChange", {starId: star.state.id, shipCount: star.state.shipCount});
+            }
         });
         // Generating wealth for each empire
         this.empireList.forEach((empire: Empire) => {
@@ -414,41 +417,56 @@ export class Galaxy extends Room<GalaxyState> {
         switch (change) {
             case "capture":
                 let attacker = this.empireList.get(data.attackerId);
-                let defender = this.empireList.get(data.defenderId);
-                if (!attacker || !defender) {
-                    console.error(`Empire not found\nAttacker ID: ${data.attackerId}\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()`);
+                let defender: Empire | undefined;
+                if (!data.unowned) {
+                    defender = this.empireList.get(data.defenderId);
+                }
+                if (!attacker) {
+                    console.error(`Attacker Empire not found\nAttacker ID: ${data.attackerId}\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()`);
+                    return;
+                }
+                if (!defender && !data.unowned) {
+                    console.error(`Defender Empire not found\nAttacker ID: ${data.attackerId}\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()`);
                     return;
                 }
                 let attackerVis = this.starVisibilityMap.get(attacker.state.id);
-                let defenderVis = this.starVisibilityMap.get(defender.state.id);
+                let defenderVis: string[] | undefined;
+                if (!data.unowned) {
+                    defenderVis = this.starVisibilityMap.get(defender!.state.id);
+                }
                 if (!attackerVis) {
                     this.starVisibilityMap.set(attacker.state.id, [data.starId]);
+                    attackerVis = this.starVisibilityMap.get(attacker.state.id)!;
                 }
                 this.listStarsInRange(data.starId, attacker.state.ownerId).forEach((star: Star) => {
-                    if (!this.starVisibilityMap.get(attacker.state.id)!.includes(star.getId())) {
-                        this.starVisibilityMap.get(attacker.state.id)!.push(star.getId());
+                    if (!attackerVis.includes(star.state.id)) {
+                        attackerVis.push(star.state.id);
                     }
                 });
-                if (!defenderVis) {
+                this.genPlayerStarView(attacker.state.ownerId);
+                if (!defenderVis && !data.unowned) {
                     console.error(`Defender visibility map not found while getting Star Taken\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()\nStar ID: ${data.starId}`);
                     return;
                 } //We haven't touched the defender's visibility map during the battle unfolding process yet, so the vis map still thinks the defender owns this. So if this doesn't exist something is wrong with making sure owned stars are on their owner's list in the vis map.
-                this.listStarsInRange(data.starId, defender.state.ownerId).forEach((star: Star) => {
-                    let lineage = false;
-                    this.listStarsInRange(star.state.id, defender.state.ownerId).forEach((degree2SepStar: Star) => {
-                        if (degree2SepStar.state.owner === defender.state.id) {
-                            lineage = true;
+                if (!data.unowned) {
+                    this.listStarsInRange(data.starId, defender!.state.ownerId).forEach((star: Star) => {
+                        let lineage = false;
+                        this.listStarsInRange(star.state.id, defender!.state.ownerId).forEach((degree2SepStar: Star) => {
+                            if (degree2SepStar.state.owner === defender!.state.id) {
+                                lineage = true;
+                            }
+                        });
+                        if (!lineage) {
+                            defenderVis = defenderVis!.filter((starId: string) => {
+                                if (starId !== star.state.id) {
+                                    return true;
+                                }
+                                return false;
+                            });
                         }
                     });
-                    if (!lineage) {
-                        defenderVis = defenderVis!.filter((starId: string) => {
-                            if (starId !== star.state.id) {
-                                return true;
-                            }
-                            return false;
-                        });
-                    }
-                });
+                    this.genPlayerStarView(defender!.state.ownerId);
+                }
                 break;
             case "destroy":
                 this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
@@ -565,17 +583,27 @@ export class Galaxy extends Room<GalaxyState> {
         const fleetId = this.idGenerator();
         this.fleetList.set(fleetId, new Fleet(new FleetState(), this, fleetId, empireId, sourceStarId, destinationStarId, ships, this.state.clockTime, this.fleetEndTimeCalculator(this.state.clockTime, this.distanceBetweenStars(sourceStarId, destinationStarId), empireId)));
     }
-    renameStar(id: string, name: string, owner: string) {
+    renameStar(id: string, name: string, clientId: string) {
         var star = this.starList.get(id);
         if (!star) {
-            console.error(`\nStar not found\nStar ID: ${id}\nLocation: Galaxy.renameStar()\nOwner ID: ${owner}`);
+            console.error(`\nStar not found\nStar ID: ${id}\nLocation: Galaxy.renameStar()\nClient ID: ${clientId}`);
             return;
         }
-        if (star.state.owner !== owner) {
-            console.error(`\nStar not owned by empire\nStar ID: ${id}\nStar Owner ID: ${star.state.owner}\nOwner ID: ${owner}\nLocation: Galaxy.renameStar()`);
+        if (!this.playerToEmpireList.has(clientId)) {
+            console.error(`\nClient empire not found\nClient ID: ${clientId}\n Location: Galaxy.renameStar()`);
+            return;
+        }
+        var empireId = this.playerToEmpireList.get(clientId);
+        if (!empireId) {
+            console.error(`\nEmpire of Client not found\nClient ID: ${clientId}\n Location: Galaxy.renameStar()`);
+            return;
+        }
+        if (star.state.owner !== empireId) {
+            console.error(`\nStar not owned by empire\nStar ID: ${id}\nStar Owner ID: ${star.state.owner}\nOwner ID: ${empireId}\nClient ID: ${clientId}\nLocation: Galaxy.renameStar()`);
             return;
         }
         star.state.name = name;
+        this.updatePlayersStarView("rename", {starId: id, name: name, empireId: empireId});
     }
     destroyFleet(id: string) {
         this.fleetList.delete(id);
@@ -593,19 +621,17 @@ export class Galaxy extends Room<GalaxyState> {
         else {
             //Battle
             var defenders = this.empireList.get(star.state.owner);
-            if (!defenders) {
-                console.error(`\nDefender Empire not found\nOwner ID: ${star.state.owner}\nEmpire List: ${this.empireList}\nLocation: Galaxy.fleetArrive(), 2`);
-                return;
-            }
             var attackers = this.empireList.get(fleet.state.owner);
             if (!attackers) {
                 console.error(`\nAttacker Empire not found\nOwner ID: ${fleet.state.owner}\nEmpire List: ${this.empireList}\nLocation: Galaxy.fleetArrive(), 2`);
                 return;
             }
             if (!defenders) {
+                console.warn(`\nDefender Empire not found\nOwner ID: ${star.state.owner}\nEmpire List: ${this.empireList}\nLocation: Galaxy.fleetArrive(), 2`);
                 star.state.shipCount = fleet.state.ships - star.state.shipCount;
                 this.destroyFleet(fleet.state.id);
                 star.state.owner = fleet.state.owner;
+                this.updatePlayersStarView("capture", {starId: star.state.id, attackerId: fleet.state.owner, defenderId: "", unowned: true});
                 return;
             }
             var defendersBattlePower = defenders.state.battlePower;
@@ -653,11 +679,14 @@ export class Galaxy extends Room<GalaxyState> {
             if (defenderWin) {
                 star.state.shipCount = (defenderShips - attackerShips * (1 + defendersBattlePower/10 - attackersBattlePower/10)) + randomizedOutcome;
                 this.destroyFleet(fleet.state.id);
+                this.updatePlayersStarView("shipCountChange", {starId: star.state.id, shipCount: star.state.shipCount});
             }
             else {
+                this.updatePlayersStarView("capture", {starId: star.state.id, attackerId: fleet.state.owner, defenderId: star.state.owner});
                 star.state.owner = fleet.state.owner;
                 star.state.shipCount = (attackerShips - defenderShips * (1 + attackersBattlePower/10 - defendersBattlePower/10)) + randomizedOutcome;
                 this.destroyFleet(fleet.state.id);
+                this.updatePlayersStarView("shipCountChange", {starId: star.state.id, shipCount: star.state.shipCount});
             }
         }
     }
@@ -712,6 +741,7 @@ export class Galaxy extends Room<GalaxyState> {
             return;
         }
         sourceStar.state.shipCount -= ships;
+        this.updatePlayersStarView("shipCountChange", {starId: sourceStarId, shipCount: sourceStar.state.shipCount});
         this.createFleet(sourceStarId, destinationStarId, ships, clientId);
     }
     buildFactory(starId: string, clientId: string) {
@@ -730,7 +760,7 @@ export class Galaxy extends Room<GalaxyState> {
             console.error(`\nClient empire not found\nOwner ID: ${clientId}\n Location: Galaxy.buildFactory()`);
             return;
         }
-        if (star.state.owner !== clientEmpire.state.ownerId) {
+        if (star.state.owner !== clientEmpire.state.id) {
             console.error(`\nStar not owned by player\nOwner ID: ${star.state.owner}\n Location: Galaxy.buildFactory()`);
             return;
         }
@@ -740,7 +770,7 @@ export class Galaxy extends Room<GalaxyState> {
         }
         clientEmpire.state.wealth -= clientEmpire.state.factoryCost;
         star.state.factoryCount++;
-        console.log(`\nFactory built on ${star.state.name} (Id: ${star.state.id}) for ${clientEmpire.state.name} (Id: ${clientEmpire.state.ownerId})\nLocation: Galaxy.buildFactory()`);
+        console.log(`\nFactory built on ${star.state.name} (Id: ${star.state.id}) for ${clientEmpire.state.name} (Id: ${clientEmpire.state.id})\nBy Player ${clientId}\nLocation: Galaxy.buildFactory()`);
     }
     upgradeSpeed(clientId: string) {
         var clientEmpireId = this.playerToEmpireList.get(clientId);
@@ -779,6 +809,7 @@ export class Galaxy extends Room<GalaxyState> {
         }
         clientEmpire.state.wealth -= clientEmpire.state.rangeCost;
         clientEmpire.state.range++;
+        this.updatePlayersStarView("rangeChange", {empireId: clientEmpireId, clientId: clientId});
         clientEmpire.state.rangeCost = this.calculateRangeCost(clientId);
         console.log(`\nRange upgraded to ${clientEmpire.state.range} for ${clientEmpire.state.name} (${clientEmpire.state.ownerId})\nLocation: Galaxy.upgradeRange()`);
     }
@@ -888,7 +919,7 @@ export class Galaxy extends Room<GalaxyState> {
         var starY = star.state.y;
         var starsInRange: Star[] = [];
         this.starList.forEach((star2: Star) => {
-            if (star2.getId() === starId) {
+            if (star2.state.id === starId) {
             } else {
                 var distance = Math.sqrt(Math.pow(starX - star2.state.x, 2) + Math.pow(starY - star2.state.y, 2));
                 if (distance <= range) {
