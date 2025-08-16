@@ -3,6 +3,7 @@ import { Client, Room } from "colyseus.js";
 import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
 import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
+import type { StarState } from "colyseusTypes/StarState";
 
 // ===== HTML ELEMENTS =====
 const statusEl = document.getElementById("status")!;
@@ -18,6 +19,7 @@ const debugText2 = document.getElementById("debugDisplay2")!;
 const debugPanel3 = document.getElementById("debugPanel3")!;
 const debugText3 = document.getElementById("debugDisplay3")!;
 let showDebug = true;
+const tooltipEl = document.getElementById("tooltip") as HTMLDivElement;
 
 // ===== COLYSEUS CLIENT =====
 const client = new Client("ws://localhost:5111");
@@ -25,8 +27,14 @@ let sessionId = "";
 let empireId = "";
 let playerViewState: PlayerViewState | null = null;
 let galaxyState: GalaxyState | null = null;
-let pixiApp: PIXI.Application | null = null;
+let pixiApp: PIXIAppPlus | null = null;
 let galaxyUnits = 1;
+
+// ===== TOOLTIP =====
+let hoveredStar: {star: StarState, sprite: PIXI.Sprite} | null = null;
+let tooltipXOffset = 15;
+let tooltipYOffset = 0;
+let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -35,6 +43,8 @@ const galaxySize = new Map<string, number>([
     ["medium", 10000],
     ["large", 15000]
 ]);
+
+type PIXIAppPlus = PIXI.Application & { tooltipLayer: PIXI.Container, tooltip: PIXI.Text };
 
 // ===== CAMERA STATE =====
 let zoom = 1;
@@ -285,9 +295,9 @@ then track the delta change from where they clicked and are dragging to where th
 and we apply that change,
 capped out at the maximum amount that won't push any of the camera view out of bounds for the GalaxySize.
 */
-async function createPixiApp(container: HTMLElement): Promise<PIXI.Application> {
+async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     container.innerHTML = ""; // inside createPixiApp
-    const app = new PIXI.Application();
+    const app = new PIXI.Application() as PIXIAppPlus;
     await app.init({
         width: 800,
         height: 800,
@@ -297,10 +307,28 @@ async function createPixiApp(container: HTMLElement): Promise<PIXI.Application> 
         autoDensity: true,
     });
     container.appendChild(app.canvas);
+
+    const tooltipLayer = new PIXI.Container();
+    const tooltip = new PIXI.Text("", {
+        fontSize: 8,
+        fill: "#ffffff",
+        stroke: "#000000",
+    });
+    tooltipLayer.addChild(tooltip);
+    tooltip.visible = false;
+    tooltip.zIndex = 1000;
+    tooltip.anchor = new PIXI.Point(0, 0);
+    app.stage.addChild(tooltipLayer);
+
+    app.stage.sortableChildren = true;
+
+    app.tooltip = tooltip;
+    app.tooltipLayer = tooltipLayer;
+
     return app;
 }
 
-function setupCamera(app: PIXI.Application) {
+function setupCamera(app: PIXIAppPlus) {
     // Set initial fitZoom to fit entire galaxy
     const fitZoomX = app.renderer.width / galaxyUnits;
     const fitZoomY = app.renderer.height / galaxyUnits;
@@ -364,6 +392,26 @@ function setupCamera(app: PIXI.Application) {
     app.view.addEventListener("mouseup", () => dragging = false);
     app.view.addEventListener("mouseleave", () => dragging = false);
     app.view.addEventListener("mousemove", (e) => {
+        if (hoveredStar && hoveredStar.sprite && hoveredStar.star) {
+            const rect = app.view.getBoundingClientRect();
+            let canvasX = e.clientX - rect.left;
+            let canvasY = e.clientY - rect.top;
+            let worldX = (canvasX - app.stage.position.x) / app.stage.scale.x;
+            let worldY = (canvasY - app.stage.position.y) / app.stage.scale.y;
+            let dx = Math.abs(hoveredStar.star.x - worldX);
+            let dy = Math.abs(hoveredStar.star.y - worldY);
+            if (dx > 3 || dy > 3) {
+                if (hoverTimer) clearTimeout(hoverTimer);
+                tooltipEl.style.opacity = "0";
+                hoveredStar = null;
+            } else {
+                const globalPos = app.stage.toGlobal(hoveredStar.sprite.position);
+                tooltipEl.style.left = `${globalPos.x + app.view.getBoundingClientRect().left + hoveredStar.sprite.getBounds().width/2 + tooltipXOffset}px`;
+                tooltipEl.style.top = `${globalPos.y + app.view.getBoundingClientRect().top + hoveredStar.sprite.getBounds().height/2 + tooltipYOffset}px`;
+            }
+            
+        }
+
         if (!dragging) return;
         if (zoom === fitZoom) return; // disable panning when fully zoomed out
         const dx = e.clientX - lastX;
@@ -393,19 +441,43 @@ function setupCamera(app: PIXI.Application) {
 }
 
 
-function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXI.Application | null, galaxySize: number) {
+function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
     if (!app) return;
     const stage = app.stage;
+    const tooltipLayer = app.tooltipLayer;
+    const tooltip = app.tooltip;
     stage.removeChildren();
+    stage.addChild(tooltipLayer);
+    stage.addChild(tooltip);
 
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
-        const sprite = PIXI.Sprite.from('assets/star.png');
+        const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
         sprite.width = 2; // fixed size in galaxy units
         sprite.height = 2;
         sprite.anchor.set(0.5);
         sprite.x = star.x;
         sprite.y = star.y;
+
+        sprite.interactive = true;
+        sprite.cursor = "pointer";
+        sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
+
+        sprite.starData = star;
+
+        sprite.on("pointerover", () => {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            hoverTimer = setTimeout(() => {
+                displayStarTooltip(star, sprite);
+            }, 300);
+        });
+
+        sprite.on("pointerout", () => {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            tooltipEl.style.opacity = "0";
+            hoveredStar = null;
+        });
+
         stage.addChild(sprite);
     });
 
@@ -452,4 +524,34 @@ function renderLoop() {
         renderPlayerViewState(galaxyState, playerViewState, pixiApp, galaxyUnits);
     }
     requestAnimationFrame(renderLoop); // 🟢 Calls itself repeatedly, 60fps
+}
+function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
+    let displayText: string = "";
+            hoveredStar = {star: star, sprite: sprite};
+            if (star.name !== "???") {
+                displayText += `${star.name}\n`;
+            }
+            if (star.owner !== "???") {
+                displayText += `Owner: ${star.owner}\n`;
+            }
+            if (star.shipCount !== -1) {
+                displayText += `Ships: ${star.shipCount}\n`;
+            }
+            if (star.factoryCount !== -1) {
+                displayText += `Factories: ${star.factoryCount}\n`;
+            }
+            if (star.wealthProduction !== -1) {
+                displayText += `Wealth Production: ${star.wealthProduction}\n`;
+            }
+            tooltipEl.textContent = displayText;
+            if (!pixiApp) {
+                console.error("Attempting to DisplayStarTooltip with no PIXIApp, Call Shouldn't Be Happening, main.ts:544");
+                return;
+            }
+            const globalPos = pixiApp.stage.toGlobal(sprite.position);
+            tooltipEl.style.left = `${globalPos.x + pixiApp.view.getBoundingClientRect().left + hoveredStar.sprite.getBounds().width/2 + tooltipXOffset}px`;
+            tooltipEl.style.top = `${globalPos.y + pixiApp.view.getBoundingClientRect().top + hoveredStar.sprite.getBounds().height/2 + tooltipYOffset}px`;
+            tooltipEl.style.whiteSpace = "pre-line";
+            tooltipEl.style.display = "block";
+            tooltipEl.style.opacity = "1";
 }

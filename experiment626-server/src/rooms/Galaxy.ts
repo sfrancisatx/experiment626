@@ -382,12 +382,30 @@ export class Galaxy extends Room<GalaxyState> {
                             return;
                         }
                         if (star.state.owner === empire.state.id) {
-                            playerViewState.starList.push(star.state);
+                            const starState = new StarState
+                            starState.id = star.state.id;
+                            starState.name = star.state.name;
+                            starState.owner = empire.state.name;
+                            starState.x = star.state.x;
+                            starState.y = star.state.y;
+                            starState.wealthProduction = star.state.wealthProduction;
+                            starState.factoryCount = star.state.factoryCount;
+                            starState.shipCount = star.state.shipCount;
+                            playerViewState.starList.push(starState);
                         } else {
                             const starState = new StarState
                             starState.id = star.state.id;
                             starState.name = star.state.name;
-                            starState.owner = star.state.owner;
+                            if (star.state.owner === "") {
+                                starState.owner = "None";
+                            } else {
+                                let nameOfOwner = this.empireList.get(star.state.owner)?.state.name
+                                if (!nameOfOwner) {
+                                    console.error(`Empire not found\nEmpire ID Provided: ${star.state.owner}\nEmpire List: ${this.empireList}\nStar: ${star.toString("true")}\nLocation: Galaxy.genPlayerStarView()`);
+                                    nameOfOwner = "Unknown";
+                                }
+                                starState.owner = nameOfOwner;
+                            }
                             starState.x = star.state.x;
                             starState.y = star.state.y;
                             starState.wealthProduction = -1;
