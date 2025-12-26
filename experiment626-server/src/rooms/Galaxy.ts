@@ -449,8 +449,8 @@ export class Galaxy extends Room<GalaxyState> {
                 }
                 let attackerVis = this.starVisibilityMap.get(attacker.state.id);
                 let defenderVis: string[] | undefined;
-                if (!data.unowned) {
-                    defenderVis = this.starVisibilityMap.get(defender!.state.id);
+                if (defender) {
+                    defenderVis = this.starVisibilityMap.get(defender.state.id);
                 }
                 if (!attackerVis) {
                     this.starVisibilityMap.set(attacker.state.id, [data.starId]);
@@ -462,18 +462,12 @@ export class Galaxy extends Room<GalaxyState> {
                     }
                 });
                 this.genPlayerStarView(attacker.state.ownerId);
-                if (!defenderVis && !data.unowned) {
-                    console.error(`Defender visibility map not found while getting Star Taken\nDefender ID: ${data.defenderId}\nLocation: Galaxy.updatePlayersStarView()\nStar ID: ${data.starId}`);
-                    return;
-                } //We haven't touched the defender's visibility map during the battle unfolding process yet, so the vis map still thinks the defender owns this. So if this doesn't exist something is wrong with making sure owned stars are on their owner's list in the vis map.
-                if (!data.unowned) {
-                    this.listStarsInRange(data.starId, defender!.state.ownerId).forEach((star: Star) => {
+                //We haven't touched the defender's visibility map during the battle unfolding process yet, so the vis map still thinks the defender owns this. So if this doesn't exist something is wrong with making sure owned stars are on their owner's list in the vis map.
+                if (defender) {
+                    this.listStarsInRange(data.starId, defender.state.ownerId).forEach((star: Star) => {
                         let lineage = false;
-                        this.listStarsInRange(star.state.id, defender!.state.ownerId).forEach((degree2SepStar: Star) => {
-                            if (degree2SepStar.state.owner === defender!.state.id) {
-                                lineage = true;
-                            }
-                        });
+                        this.listStarsInRange(star.state.id, defender.state.ownerId).some(degree2SepStar => 
+                            degree2SepStar.state.owner === defender.state.id);
                         if (!lineage) {
                             defenderVis = defenderVis!.filter((starId: string) => {
                                 if (starId !== star.state.id) {
@@ -483,7 +477,7 @@ export class Galaxy extends Room<GalaxyState> {
                             });
                         }
                     });
-                    this.genPlayerStarView(defender!.state.ownerId);
+                    this.genPlayerStarView(defender.state.ownerId);
                 }
                 break;
             case "destroy":
