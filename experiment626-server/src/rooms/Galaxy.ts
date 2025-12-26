@@ -245,8 +245,8 @@ export class Galaxy extends Room<GalaxyState> {
                 var gsize = galaxySize.get(this.state.size);
                 if (!gsize) {
                     console.error(`Invalid galaxy size: ${this.state.size}\n Location: Galaxy.initGalaxy(), 2`);
-                    gsize = galaxySize.get("itty")!;
-                    this.state.size = "itty";
+                    gsize = galaxySize.get("small")!;
+                    this.state.size = "small";
                 }
                 for (let i = 0; i < gsize/5; i++) {
                     var x: number = Math.round(Math.random() * gsize);

@@ -18,7 +18,7 @@ const debugPanel2 = document.getElementById("debugPanel2")!;
 const debugText2 = document.getElementById("debugDisplay2")!;
 const debugPanel3 = document.getElementById("debugPanel3")!;
 const debugText3 = document.getElementById("debugDisplay3")!;
-let showDebug = true;
+let showDebug = false;
 const tooltipEl = document.getElementById("tooltip") as HTMLDivElement;
 
 // ===== COLYSEUS CLIENT =====
@@ -114,10 +114,12 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         const mapDisplay = document.getElementById("mapDisplay");
         if (!mapDisplay) return;
 
-        galaxyUnits = galaxySize.get(room.state.size) || 100;
+        // console.log("Client side request galaxySize: " + room.state.size);
+        // galaxyUnits = galaxySize.get(room.state.size) || 100;
 
         room.onStateChange(async (state: GalaxyState) => {
-            galaxyUnits = galaxySize.get(state.size) || 100;
+            galaxyUnits = await waitForGalaxySize(room);
+            // console.log("Client side request galaxySize: " + room.state.size + " --> " + galaxyUnits);
             galaxyState = state;
         
             if (!pixiInitialized) {
@@ -263,6 +265,16 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         console.error("❌ Failed to join room:", err);
         statusEl.textContent = "❌ Failed to connect.";
     });
+    function waitForGalaxySize(room: Room): Promise<number> {
+        return new Promise((resolve) => {
+            room.onStateChange((state) => {
+                const units = galaxySize.get(state.size);
+                if (units !== undefined) {
+                    resolve(units);
+                }
+            });
+        });
+    }
 }
 
 // ===== PIXI UTILITIES =====
@@ -299,8 +311,7 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     container.innerHTML = ""; // inside createPixiApp
     const app = new PIXI.Application() as PIXIAppPlus;
     await app.init({
-        width: 800,
-        height: 800,
+        resizeTo: container,
         backgroundColor: 0x181828,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
@@ -330,6 +341,7 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
 
 function setupCamera(app: PIXIAppPlus) {
     // Set initial fitZoom to fit entire galaxy
+    console.log("Client side galaxySize: " + galaxyUnits);
     const fitZoomX = app.renderer.width / galaxyUnits;
     const fitZoomY = app.renderer.height / galaxyUnits;
     fitZoom = Math.min(fitZoomX, fitZoomY);
