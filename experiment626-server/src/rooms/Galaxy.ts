@@ -29,7 +29,7 @@ interface createOptions {
 
 const gridUnitsPerLightYear = 1;
 const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds 0.002777777778 = 1 turn every 10 seconds 0.0002777777778 = 1 turn every second
-const startingRange = 17;
+const startingRange = 10000;
 
 const galaxySize = new Map<string, number>([
     ["itty", 100],

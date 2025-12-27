@@ -111,8 +111,10 @@ if (!window.location.hash || window.location.hash === "#lobby") {
         console.log("✅ Joined room:", room.roomId);
         statusEl.textContent = `✅ Connected to room: ${room.roomId}`;
 
-        const mapDisplay = document.getElementById("mapDisplay");
-        if (!mapDisplay) return;
+        // const mapDisplay = document.getElementById("mapDisplay");
+        // if (!mapDisplay) return;
+        const pixiRoot = document.getElementById("pixi-root");
+        if (!pixiRoot) return;
 
         // console.log("Client side request galaxySize: " + room.state.size);
         // galaxyUnits = galaxySize.get(room.state.size) || 100;
@@ -129,7 +131,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
                     "assets/fleet.png"
                 ]);
         
-                pixiApp = await createPixiApp(mapDisplay);
+                pixiApp = await createPixiApp(pixiRoot);
                 setupCamera(pixiApp);
         
                 // 🟢 Start the continuous render loop now that PIXI is ready
@@ -308,10 +310,10 @@ and we apply that change,
 capped out at the maximum amount that won't push any of the camera view out of bounds for the GalaxySize.
 */
 async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
-    container.innerHTML = ""; // inside createPixiApp
+    // container.innerHTML = ""; // inside createPixiApp
     const app = new PIXI.Application() as PIXIAppPlus;
     await app.init({
-        resizeTo: container,
+        resizeTo: window,
         backgroundColor: 0x181828,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
