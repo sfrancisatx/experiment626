@@ -45,7 +45,7 @@ export class Galaxy extends Room<GalaxyState> {
     playerToEmpireList: Map<string, string> = new Map<string, string>(); //Player ID -> Empire ID
     idCounter: number = 0;
     skipToNextTurn: boolean = false;
-    nextTurnTime: number = hoursPerTurn * 60 * 60 * 1000;
+    nextTurnTime: number = Number.MAX_SAFE_INTEGER;
     nextUITime: number = 2000;
     playerViewStateList: Map<string, PlayerViewState> = new Map<string, PlayerViewState>(); //Client ID -> PlayerViewState
     starVisibilityMap: Map<string, string[]> = new Map<string, string[]>(); //Empire ID -> Star ID[]
@@ -272,6 +272,7 @@ export class Galaxy extends Room<GalaxyState> {
             this.genPlayerFleetView(playerViewState.sessionId);
             this.clients.getById(playerViewState.sessionId)?.send("playerViewState", playerViewState);
         });
+        this.nextTurnTime = hoursPerTurn * 60 * 60 * 1000 + this.state.clockTime;
     }
     genStarVisibilityMap(empireId?: string) {
         if (!empireId) {

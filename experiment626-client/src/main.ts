@@ -346,6 +346,7 @@ function setupCamera(app: PIXIAppPlus) {
     console.log("Client side galaxySize: " + galaxyUnits);
     const fitZoomX = app.renderer.width / galaxyUnits;
     const fitZoomY = app.renderer.height / galaxyUnits;
+    console.log("fitZoomX:", fitZoomX, "fitZoomY:", fitZoomY);
     fitZoom = Math.min(fitZoomX, fitZoomY);
     zoom = fitZoom;
     app.stage.scale.set(zoom);
@@ -366,7 +367,7 @@ function setupCamera(app: PIXIAppPlus) {
 
         const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
         let newZoom = zoom * scaleFactor;
-        newZoom = Math.max(fitZoom, Math.min(20, newZoom));
+        newZoom = Math.max(fitZoom, Math.min(20, newZoom)); //Prolly change that 20 out for something more dynamic and fitting!!!
 
         // Keep world point under mouse stationary
         app.stage.position.x -= (worldX * newZoom - worldX * zoom);
