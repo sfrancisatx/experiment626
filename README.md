@@ -1,6 +1,43 @@
 # experiment626
 galactic conquest game
 
+## Quick Start
+
+### Prerequisites
+- Node.js 20.9.0 or higher
+- npm installed
+
+### Running the Application
+
+1. **Start the Server** (runs on port 5111):
+```bash
+cd experiment626-server
+npm install
+npm start
+```
+
+2. **Start the Client** (optional - runs on port 3000):
+```bash
+cd experiment626-client
+npm install
+npm run dev
+```
+
+3. **Access Points**:
+- **Static HTML Landing**: http://localhost:5111/landing.html
+- **React App**: http://localhost:3000 (if client is running)
+- **Colyseus Playground**: http://localhost:5111 (development only)
+- **Colyseus Monitor**: http://localhost:5111/monitor
+
+### Important Port Configuration
+- **Server Port**: 5111 (hardcoded in client connections)
+- **Client Dev Server**: 3000 (Vite default)
+- **Database**: None currently (in-memory only)
+
+⚠️ **DO NOT CHANGE THE SERVER PORT** - The static HTML client is hardcoded to connect to `ws://localhost:5111`. If you need to change the port, you must update:
+- `experiment626-client/public/landing.html` (line 30)
+- `experiment626-client/src/main.tsx` (line 6)
+
 Setting up tools: 
     1. set up Xcode or VSCode   x
     2. set up a GitHub account  x

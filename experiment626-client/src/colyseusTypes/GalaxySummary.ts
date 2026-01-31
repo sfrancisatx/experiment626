@@ -5,7 +5,7 @@
 // GENERATED USING @colyseus/schema 3.0.39
 // 
 
-import { Schema, type, ArraySchema, MapSchema, SetSchema, type DataChange } from '@colyseus/schema';
+import { Schema, type, ArraySchema, MapSchema, SetSchema, DataChange } from '@colyseus/schema';
 
 
 export class GalaxySummary extends Schema {
