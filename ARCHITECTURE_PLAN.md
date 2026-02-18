@@ -34,21 +34,17 @@ This document outlines the cloud architecture and deployment strategy for Experi
        HTTPS   │
                ▼
 ┌──────────────────────────────┐
-│        Cloud Run (API)       │◄────────────┐
-│  Auth, user API, REST, etc.  │             │
-└──────────────┬───────────────┘             │
-               │HTTP                          │
-               ▼                              │
-┌──────────────────────────────┐             │
-│      Cloud Run (Game)        │             │
-│  Colyseus server (WS + HTTP) │─────────────┘
+│     Cloud Run (Game Server)  │
+│  Colyseus (WS) + Express    │
+│  (auth middleware, user API) │
 └──────────────┬───────────────┘
                │
                │VPC (private)
                ▼
       ┌────────────────┐   ┌──────────────────┐
       │ Cloud SQL (PG) │   │ Redis Memorystore│
-      │  Users, assoc  │   │ Sessions/cache   │
+      │  Users, assoc, │   │ (Phase 2: room   │
+      │  game snapshots│   │  presence/driver)│
       └────────────────┘   └──────────────────┘
 
       ┌────────────────┐
@@ -57,27 +53,38 @@ This document outlines the cloud architecture and deployment strategy for Experi
       └────────────────┘
 ```
 
+> **Note:** The diagram shows a single Cloud Run service. The current codebase
+> already serves Express HTTP routes (auth, user API) alongside Colyseus on the
+> same process. Splitting into a separate API service is a future option if the
+> REST API needs independent scaling, but is not needed initially.
+
 ### GCP Services Chosen
 
 - **Cloud Run**
-  - Runs containerized Node.js services:
-    - `experiment626-game-server` (Colyseus)
-    - Optional `experiment626-api` (REST auth/user API) if separated from game server
-  - Auto-scales based on traffic
+  - Runs a single containerized Node.js service: `experiment626-game-server`
+    - Colyseus game server (WebSocket)
+    - Express routes: auth middleware, user API, monitoring
+  - **Important:** Initially deploy as a **single instance** (`maxInstances: 1`). Colyseus rooms are pinned to the process that created them. Multi-instance scaling requires Redis presence/driver (see Phase 2 below).
+  - Future option: split REST API into a separate `experiment626-api` service if independent scaling is needed.
 
 - **Cloud SQL (PostgreSQL)**
-  - Stores user accounts, sessions, user-game associations, and possibly some persisted game state (e.g., galaxy metadata)
+  - Stores user accounts, user-game associations, and **game state snapshots** (galaxy metadata, star/empire/fleet state)
+  - Game snapshots enable recovery after restarts or redeployments (see "Game State Persistence" section)
 
-- **Redis Memorystore**
-  - Stores short-lived sessions, rate limits, and caches
+- **Redis Memorystore** *(Phase 2 — not needed initially)*
+  - Required when scaling to multiple Cloud Run instances:
+    - `@colyseus/redis-presence` for room discovery across instances
+    - `@colyseus/redis-driver` for room state coordination
+  - Can also be used for rate limiting and caching once deployed
 
 - **Cloud Storage + Cloud CDN**
   - Serves built React assets
   - Optionally serves other static assets (images, docs)
 
-- **Firebase Authentication (optional but recommended)**
-  - Handles email/magic link + Google auth
-  - Reduces auth burden on backend
+- **Firebase Authentication** *(recommended — see USER_PLAN.md)*
+  - Handles anonymous, email/magic link, and Google auth
+  - Server verifies Firebase ID tokens via `firebase-admin` SDK
+  - Eliminates need for custom JWT signing/verification
 
 - **Cloud Load Balancing + Cloud Armor**
   - Entry point for HTTPS traffic
@@ -96,9 +103,12 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost/experiment626',
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  redisUrl: process.env.REDIS_URL || '',  // empty until Phase 2
 
-  jwtSecret: process.env.JWT_SECRET || 'dev-secret',
+  // Firebase Admin SDK uses GOOGLE_APPLICATION_CREDENTIALS env var
+  // or auto-detects on Cloud Run. No secret key needed.
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID || '',
+
   allowedOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
 };
 ```
@@ -112,6 +122,7 @@ A small client-side config module to switch endpoints by environment:
 ```ts
 // experiment626-client/src/config.ts
 export const clientConfig = {
+  // Single Cloud Run service serves both WS and REST
   gameServerUrl:
     import.meta.env.PROD
       ? 'wss://experiment626-game-server-<region>-<project>.run.app'
@@ -119,12 +130,14 @@ export const clientConfig = {
 
   apiBaseUrl:
     import.meta.env.PROD
-      ? 'https://experiment626-api-<region>-<project>.run.app'
-      : 'http://localhost:8080',
+      ? 'https://experiment626-game-server-<region>-<project>.run.app'
+      : 'http://localhost:5111',
 };
 ```
 
-Vite will inject `import.meta.env` for prod vs dev.
+Vite will inject `import.meta.env` for prod vs dev. Note that `gameServerUrl` and
+`apiBaseUrl` point to the **same Cloud Run service** — one uses `wss://` for
+WebSocket connections, the other `https://` for REST calls.
 
 ## Containerization
 
@@ -162,17 +175,24 @@ CMD ["npm", "start"]
 cd experiment626-server
 gcloud builds submit --tag gcr.io/$PROJECT_ID/experiment626-game-server
 
-# Deploy to Cloud Run
+# Deploy to Cloud Run (single instance — see scaling notes below)
 gcloud run deploy experiment626-game-server \
   --image gcr.io/$PROJECT_ID/experiment626-game-server \
   --region=us-central1 \
   --platform=managed \
   --allow-unauthenticated \
   --port=5111 \
+  --min-instances=1 \
+  --max-instances=1 \
   --set-env-vars=NODE_ENV=production \
   --set-env-vars=DATABASE_URL=$DATABASE_URL \
-  --set-env-vars=REDIS_URL=$REDIS_URL
+  --set-env-vars=FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
 ```
+
+> **Why `--max-instances=1`?** Colyseus rooms live in the memory of the process
+> that created them. If Cloud Run scales to 2+ instances, new connections may
+> land on an instance that has no rooms. Multi-instance scaling requires
+> `@colyseus/redis-presence` and `@colyseus/redis-driver` (Phase 2).
 
 > Note: For real deployments, use **Secret Manager** instead of inlining secrets.
 
@@ -180,10 +200,14 @@ gcloud run deploy experiment626-game-server \
 
 ### Core Tables
 
-- `users`: as defined in `USER_PLAN.md`
-- `user_sessions`: tracks active tokens
+- `users`: as defined in `USER_PLAN.md` (keyed by Firebase `uid`)
 - `user_game_associations`: ties users to galaxies/empires
-- (Later) `galaxies`, `replay_events`, etc.
+- `galaxy_snapshots`: periodic snapshots of in-memory game state (see "Game State Persistence")
+
+### Optional / Future Tables
+
+- `user_sessions`: only needed if server-side session tracking is added beyond Firebase ID tokens (see `USER_PLAN.md`)
+- `replay_events`: for game replay or analytics
 
 ### Access Pattern Considerations
 
@@ -191,23 +215,70 @@ gcloud run deploy experiment626-game-server \
 - DB writes are:
   - On user login/logout
   - On galaxy creation
-  - On significant game milestones (e.g., turn boundaries, game end)
+  - **On every turn boundary** (game state snapshot — see below)
+  - On significant game milestones (e.g., game end)
 - DB reads are:
-  - On dashboard load (user’s galaxies)
-  - On re-attachment (lookup user’s empire in a galaxy)
+  - On dashboard load (user's galaxies)
+  - On re-attachment (lookup user's empire in a galaxy)
+  - **On room recreation** (restore game state from last snapshot)
+
+## Game State Persistence
+
+### The Problem
+
+Galaxy rooms are **entirely in-memory**. The `Galaxy` class holds `starList`, `empireList`, `fleetList`, `playerViewStateList`, and `starVisibilityMap` as plain `Map` objects. There is currently no `onLeave` handler, and Colyseus disposes rooms by default when all clients disconnect.
+
+For a game designed to run for weeks, this means:
+- If the Cloud Run instance restarts (deploy, crash, scaling event), **all game state is lost**.
+- If all players disconnect overnight, the room is disposed and the galaxy is gone.
+
+### Solution: Periodic Snapshots + Room Restoration
+
+1. **Set `autoDispose = false`** on `Galaxy` rooms so they survive when all players leave.
+2. **Snapshot on every turn boundary.** The `turn()` method already fires on a timer. After each turn, serialize the room state and write it to the `galaxy_snapshots` table.
+3. **Snapshot schema** (example):
+   ```sql
+   CREATE TABLE galaxy_snapshots (
+     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     galaxy_id     TEXT NOT NULL,        -- matches Galaxy room's logical ID
+     room_id       TEXT,                 -- Colyseus roomId (may change on restore)
+     snapshot_data JSONB NOT NULL,       -- serialized starList, empireList, fleetList, etc.
+     turn_number   INTEGER NOT NULL,
+     created_at    TIMESTAMPTZ DEFAULT now()
+   );
+   CREATE INDEX idx_galaxy_snapshots_galaxy_id ON galaxy_snapshots(galaxy_id, created_at DESC);
+   ```
+4. **On server startup**, query for active galaxies and recreate rooms from the latest snapshot.
+5. **Implement `onLeave`** to mark the user's `user_game_association` as inactive but keep the empire alive.
+
+### What Gets Serialized
+
+- `starList` (id, name, owner, x, y, shipCount, factoryCount, wealthProduction)
+- `empireList` (id, name, ownerId, wealth, speed, range, battlePower, costs)
+- `fleetList` (id, owner, source, destination, ships, startTime, endTime)
+- `playerToEmpireList` mapping
+- Galaxy config (size, clockTime, turnTime, visibility, etc.)
+
+### What Does NOT Get Serialized
+
+- `playerViewStateList` — regenerated when a player reconnects
+- `starVisibilityMap` — regenerated from star ownership + range
 
 ## Scaling & Performance
 
 ### Cloud Run Scaling
 
-- Configure:
-  - `minInstances: 1` – keep one warm instance for faster first connections
-  - `maxInstances: 50-100` – limit to control cost
-  - `concurrency: ~50-100` – depends on expected per-instance load
+**Phase 1 (initial deployment):**
+- `minInstances: 1` — keep one warm instance; avoid cold-start delays for WebSocket connections
+- `maxInstances: 1` — **required** because Colyseus rooms are pinned to the process that created them
+- `concurrency: ~50-100` — tune based on expected simultaneous players per galaxy
+- Room count per process must be tuned based on memory/CPU (each Galaxy with a large star map uses significant memory)
 
-- Colyseus specifics:
-  - Room instances per process must be tuned based on memory/CPU
-  - If needed, use **matchmaking / room discovery** across multiple instances
+**Phase 2 (multi-instance, when needed):**
+- Add `@colyseus/redis-presence` and `@colyseus/redis-driver` (requires Redis Memorystore)
+- These allow Colyseus to discover rooms across multiple Cloud Run instances
+- Increase `maxInstances` as needed
+- Consider sticky sessions or a custom matchmaker to route returning players to the correct instance
 
 ### Database Scaling
 
@@ -217,10 +288,11 @@ gcloud run deploy experiment626-game-server \
 
 ### Session & Cache Scaling
 
-- Use Memorystore (Redis) for:
-  - Session tokens (optional if JWTs are fully stateless)
+- Firebase ID tokens are stateless — no server-side session store needed initially
+- Rate limiting can start with Cloud Armor rules or in-memory counters
+- When Redis Memorystore is added (Phase 2), it can also serve:
   - Rate limiting keys
-  - Frequently accessed derived data
+  - Frequently accessed derived data (e.g., galaxy summaries for the lobby)
 
 ## Security
 
@@ -232,9 +304,11 @@ gcloud run deploy experiment626-game-server \
 
 ### Auth & Secrets
 
-- Use **Firebase Auth** or carefully implemented custom JWT auth
-- Store secrets in **Secret Manager**
-- Rotate secrets regularly
+- Use **Firebase Authentication** for all user auth (see `USER_PLAN.md`)
+  - Server verifies Firebase ID tokens via `firebase-admin` — no custom JWT signing needed
+  - Custom auth is documented as a fallback alternative in `USER_PLAN.md` but is not the default path
+- Store secrets (e.g., `DATABASE_URL`) in **Secret Manager**
+- Firebase Admin SDK authenticates via Cloud Run's service account — no API key needed server-side
 
 ### DDoS and Abuse Protection
 
@@ -268,27 +342,41 @@ Use GitHub Actions (or similar) to:
 
 ## Migration Path from Local to GCP
 
-1. **Step 1: DB + Auth locally**
-   - Add Postgres
-   - Add user management and session tokens
+1. **Step 1: DB + Auth + Game Persistence locally**
+   - Add local Postgres (via Docker or native install)
+   - Integrate Firebase Auth (see `USER_PLAN.md` Phases 0-2)
+   - Implement Prisma schema for `users`, `user_game_associations`, `galaxy_snapshots`
+   - Implement `autoDispose = false`, `onLeave`, and snapshot/restore logic in `Galaxy.ts`
    - Keep everything running locally
 
 2. **Step 2: Containerize & Run Locally (Docker)**
-   - Dockerize server
-   - Test Docker container locally
+   - Dockerize server (see Dockerfile above)
+   - Docker Compose with Postgres + game server
+   - Verify snapshot/restore survives container restart
 
-3. **Step 3: Deploy to GCP Staging**
-   - Single-region Cloud Run
-   - Cloud SQL instance
-   - Basic monitoring & logging
+3. **Step 3: Deploy to GCP Staging (Phase 1)**
+   - Single-region Cloud Run (`maxInstances: 1`)
+   - Cloud SQL instance (small)
+   - Firebase project configured
+   - Client deployed to Cloud Storage + CDN
+   - Basic monitoring & logging via Cloud Logging
 
 4. **Step 4: Cutover / Dual Environment**
-   - Optionally support both local and cloud server URLs in client config
+   - Support both local and cloud server URLs in client config (already handled by `clientConfig`)
    - Gradually move real playtests to cloud instance
+   - Validate game state persistence across Cloud Run redeployments
 
 5. **Step 5: Harden & Optimize**
    - Improve observability, cost controls, and auto-scaling settings
+   - Cloud Armor policies
+   - Secret Manager for all sensitive config
+
+6. **Step 6: Multi-Instance Scaling (Phase 2, if needed)**
+   - Add Redis Memorystore
+   - Integrate `@colyseus/redis-presence` and `@colyseus/redis-driver`
+   - Increase `maxInstances` on Cloud Run
+   - Implement sticky sessions or custom matchmaker
 
 ---
 
-This architecture is intentionally modest and incremental: it mirrors your current local setup while introducing the pieces needed for production (database, auth, observability, and scaling) on GCP. As the game and user base grow, we can evolve this plan into multi-region deployments, replay services, and more advanced analytics.
+This architecture is intentionally modest and incremental: it mirrors your current local setup while introducing the pieces needed for production (database, auth, game state persistence, and scaling) on GCP. The critical insight is that **Colyseus rooms are single-process**, so Phase 1 is deliberately single-instance. Multi-instance scaling (Phase 2) is a separate effort that requires Redis. As the game and user base grow, we can evolve this plan into multi-region deployments, replay services, and more advanced analytics.
