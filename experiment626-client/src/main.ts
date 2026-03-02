@@ -23,8 +23,8 @@ const tooltipEl = document.getElementById("tooltip") as HTMLDivElement;
 
 // ===== COLYSEUS CLIENT =====
 // Use current origin (works both locally and when deployed)
-const serverUrl = window.location.origin.replace(/^http/, 'ws').replace(/^https/, 'wss');
-const client = new Client(serverUrl);
+// Colyseus Client expects HTTP/HTTPS and handles WebSocket upgrade internally
+const client = new Client(window.location.origin);
 let sessionId = "";
 let empireId = "";
 let playerViewState: PlayerViewState | null = null;
