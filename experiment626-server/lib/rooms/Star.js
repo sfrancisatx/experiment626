@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Star = void 0;
 class Star {
-    constructor(state, id, name, owner, x, y, wealthProduction, shipProduction, shipCount) {
+    constructor(state, id, name, owner, x, y, wealthProduction, factoryCount, shipCount) {
         this.state = state;
         this.state.id = id;
         this.state.name = name;
@@ -10,7 +10,7 @@ class Star {
         this.state.x = x;
         this.state.y = y;
         this.state.wealthProduction = wealthProduction;
-        this.state.shipProduction = shipProduction;
+        this.state.factoryCount = factoryCount;
         this.state.shipCount = shipCount;
     }
     getId() {
@@ -31,8 +31,8 @@ class Star {
     getWealthProduction() {
         return this.state.wealthProduction;
     }
-    getShipProduction() {
-        return this.state.shipProduction;
+    getFactoryCount() {
+        return this.state.factoryCount;
     }
     getShipCount() {
         return this.state.shipCount;
@@ -52,11 +52,30 @@ class Star {
     setWealthProduction(wealthProduction) {
         this.state.wealthProduction = wealthProduction;
     }
-    setShipProduction(shipProduction) {
-        this.state.shipProduction = shipProduction;
+    setFactoryCount(factoryCount) {
+        this.state.factoryCount = factoryCount;
     }
     setShipCount(shipCount) {
         this.state.shipCount = shipCount;
+    }
+    toString(verbose = "false") {
+        if (verbose === "true") {
+            return "Name: " + this.state.name + "\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner: " + this.state.owner + "\n" +
+                "X: " + this.state.x + "\n" +
+                "Y: " + this.state.y + "\n" +
+                "Wealth Production: " + this.state.wealthProduction + "\n" +
+                "Factory Count: " + this.state.factoryCount + "\n" +
+                "Ship Count: " + this.state.shipCount;
+        }
+        else {
+            return "Name: " + this.state.name + "\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner: " + this.state.owner + "\n" +
+                "X: " + this.state.x + "\n" +
+                "Y: " + this.state.y;
+        }
     }
 }
 exports.Star = Star;

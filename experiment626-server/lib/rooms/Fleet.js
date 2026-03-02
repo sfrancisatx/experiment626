@@ -1,10 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Fleet = void 0;
-const core_1 = require("@colyseus/core");
-class Fleet extends core_1.Room {
+class Fleet {
     constructor(state, galaxy, id, owner, sourceStarId, destinationStarId, ships, startTime, endTime) {
-        super();
         this.state = state;
         this.state.id = id;
         this.state.owner = owner;
@@ -15,8 +13,8 @@ class Fleet extends core_1.Room {
         this.state.endTime = endTime;
         this.galaxy = galaxy;
     }
-    update(deltaTime) {
-        if (this.state.endTime <= this.state.startTime + deltaTime) {
+    update(clockTime) {
+        if (this.state.endTime <= clockTime) {
             this.galaxy.fleetArrive(this);
         }
     }
@@ -40,6 +38,26 @@ class Fleet extends core_1.Room {
     }
     getEndTime() {
         return this.state.endTime;
+    }
+    toString(verbose = "false") {
+        if (verbose === "true") {
+            return "A Fleet in Space:\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner: " + this.state.owner + "\n" +
+                "Source Star ID: " + this.state.sourceStarId + "\n" +
+                "Destination Star ID: " + this.state.destinationStarId + "\n" +
+                "Ships: " + this.state.ships + "\n" +
+                "Start Time: " + this.state.startTime + "\n" +
+                "End Time: " + this.state.endTime;
+        }
+        else {
+            return "A Fleet in Space:\n" +
+                "ID: " + this.state.id + "\n" +
+                "Owner: " + this.state.owner + "\n" +
+                "Source Star ID: " + this.state.sourceStarId + "\n" +
+                "Destination Star ID: " + this.state.destinationStarId + "\n" +
+                "Ships: " + this.state.ships;
+        }
     }
 }
 exports.Fleet = Fleet;

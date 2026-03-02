@@ -20,7 +20,7 @@ class StarState extends schema_1.Schema {
         this.x = 0;
         this.y = 0;
         this.wealthProduction = 0;
-        this.shipProduction = 0;
+        this.factoryCount = 0;
         this.shipCount = 0;
     }
 }
@@ -52,7 +52,7 @@ __decorate([
 __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)
-], StarState.prototype, "shipProduction", void 0);
+], StarState.prototype, "factoryCount", void 0);
 __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)

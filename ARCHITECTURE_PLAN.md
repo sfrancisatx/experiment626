@@ -340,6 +340,148 @@ Use GitHub Actions (or similar) to:
 3. Deploy to Cloud Run (staging environment)
 4. Optionally promote staging → production after manual approval
 
+## Cost-Optimized Deployment (GCE VM Alternative)
+
+The architecture above targets **Cloud Run** as the primary deployment platform. This is the right choice if you want:
+- Zero-ops container management
+- Automatic HTTPS and managed certificates
+- Built-in CI/CD integration
+- Future multi-instance scaling (Phase 2)
+
+However, since you've confirmed the game **won't scale beyond one Colyseus instance**, a **Google Compute Engine (GCE) VM** is significantly cheaper and simpler for the near term.
+
+### Cost Comparison (24/7 operation)
+
+| Option | Monthly Cost | Notes |
+|---|---|---|
+| **Cloud Run** (1 vCPU, 512 MB, always-on) | ~$55-60/month | After free tier |
+| **GCE e2-micro** (2 shared vCPU, 1 GB RAM) | **$0/month** | Free tier (1 per billing account) |
+| **GCE e2-small** (2 shared vCPU, 2 GB RAM) | ~$13/month | If you exceed free tier limits |
+| **GCE e2-medium** (2 shared vCPU, 4 GB RAM) | ~$27/month | For larger games |
+
+Add Cloud SQL (`db-f1-micro` ~$8/month) + Firebase Auth (free) + Cloud Storage/CDN (~$1-2/month):
+- **Cloud Run total:** ~$65-70/month
+- **GCE e2-micro total:** ~$10/month (or **free** if within limits)
+- **GCE e2-small total:** ~$22/month
+
+### GCE VM Deployment Architecture
+
+```
+┌──────────────────────────────┐
+│       Cloud CDN / Storage    │
+│      (Static Frontend)       │
+└──────────────┬───────────────┘
+               │
+       HTTPS   │
+               ▼
+┌──────────────────────────────┐
+│    GCE VM (e2-micro/small)   │
+│  Node.js + Colyseus + Express│
+│  (game server + API)         │
+│  + nginx reverse proxy       │
+└──────────────┬───────────────┘
+               │
+               │VPC (private)
+               ▼
+      ┌────────────────┐
+      │ Cloud SQL (PG) │
+      │  Users, assoc, │
+      │  game snapshots│
+      └────────────────┘
+```
+
+### GCE VM Setup Steps
+
+1. **Create VM instance:**
+   ```bash
+   gcloud compute instances create experiment626-vm \
+     --machine-type=e2-micro \
+     --zone=us-central1-a \
+     --image-family=ubuntu-2204-lts \
+     --image-project=ubuntu-os-cloud \
+     --boot-disk-size=10GB \
+     --tags=http-server,https-server
+   ```
+
+2. **Install Node.js, Postgres client, and dependencies:**
+   ```bash
+   # SSH into VM
+   gcloud compute ssh experiment626-vm --zone=us-central1-a
+   
+   # Install Node.js 20
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   
+   # Install nginx for reverse proxy
+   sudo apt-get install -y nginx
+   
+   # Install PM2 for process management
+   sudo npm install -g pm2
+   ```
+
+3. **Deploy server code:**
+   ```bash
+   # Clone repo or rsync built server
+   git clone https://github.com/yourusername/experiment626.git
+   cd experiment626/experiment626-server
+   npm ci --only=production
+   npm run build
+   ```
+
+4. **Configure nginx reverse proxy** (`/etc/nginx/sites-available/default`):
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       location / {
+           proxy_pass http://localhost:5111;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection "upgrade";
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   ```
+
+5. **Start server with PM2:**
+   ```bash
+   cd experiment626/experiment626-server
+   pm2 start npm --name "experiment626" -- start
+   pm2 save
+   pm2 startup  # Follow instructions to enable auto-restart on boot
+   ```
+
+6. **Configure firewall:**
+   ```bash
+   gcloud compute firewall-rules create allow-http \
+     --allow tcp:80 \
+     --target-tags http-server
+   
+   gcloud compute firewall-rules create allow-https \
+     --allow tcp:443 \
+     --target-tags https-server
+   ```
+
+7. **Set up HTTPS with Let's Encrypt:**
+   ```bash
+   sudo apt-get install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d your-domain.com
+   ```
+
+### When to Switch from GCE VM to Cloud Run
+
+Consider migrating to Cloud Run when:
+- You need to scale beyond one instance (requires Redis + multi-instance setup)
+- You want zero-downtime deployments with automatic rollbacks
+- You need better integration with Cloud Build / GitHub Actions CI/CD
+- VM management (OS updates, security patches) becomes a burden
+
+For a 3-week game with modest player counts, the GCE VM is the pragmatic choice.
+
+---
+
 ## Migration Path from Local to GCP
 
 1. **Step 1: DB + Auth + Game Persistence locally**

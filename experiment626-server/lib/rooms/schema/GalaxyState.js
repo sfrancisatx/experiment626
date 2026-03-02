@@ -17,15 +17,20 @@ class GalaxyState extends schema_1.Schema {
         this.clockTime = 0;
         this.id = "";
         this.playerIdList = new schema_1.ArraySchema();
-        this.startingResearchPoints = 0;
         this.startingSpeed = 0;
         this.startingRange = 0;
         this.startingBattlePower = 0;
         this.startingWealth = 0;
         this.startingStars = 0;
         this.startingShips = 0;
+        this.factoryCost = 0;
+        this.startingSpeedCost = 0;
+        this.startingRangeCost = 0;
+        this.startingBattlePowerCost = 0;
         this.vpId = "";
-        this.size = "medium";
+        this.size = "itty";
+        this.minimumDistanceBetweenStars = 5;
+        this.visibilityLevel = 0;
     }
 }
 exports.GalaxyState = GalaxyState;
@@ -41,10 +46,6 @@ __decorate([
     (0, schema_1.type)(["string"]),
     __metadata("design:type", schema_1.ArraySchema)
 ], GalaxyState.prototype, "playerIdList", void 0);
-__decorate([
-    (0, schema_1.type)("number"),
-    __metadata("design:type", Number)
-], GalaxyState.prototype, "startingResearchPoints", void 0);
 __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)
@@ -70,6 +71,22 @@ __decorate([
     __metadata("design:type", Number)
 ], GalaxyState.prototype, "startingShips", void 0);
 __decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "factoryCost", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "startingSpeedCost", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "startingRangeCost", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "startingBattlePowerCost", void 0);
+__decorate([
     (0, schema_1.type)("string"),
     __metadata("design:type", String)
 ], GalaxyState.prototype, "vpId", void 0);
@@ -77,3 +94,11 @@ __decorate([
     (0, schema_1.type)("string"),
     __metadata("design:type", String)
 ], GalaxyState.prototype, "size", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "minimumDistanceBetweenStars", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], GalaxyState.prototype, "visibilityLevel", void 0);

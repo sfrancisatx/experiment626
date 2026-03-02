@@ -13,12 +13,14 @@ const express_1 = __importDefault(require("express"));
  * Import your Room files
  */
 const Galaxy_1 = require("./rooms/Galaxy");
+const Lobby_1 = require("./rooms/Lobby");
 exports.default = (0, tools_1.default)({
     initializeGameServer: (gameServer) => {
         /**
          * Define your room handlers:
          */
         gameServer.define("game_room", Galaxy_1.Galaxy);
+        gameServer.define("lobby", Lobby_1.LobbyRoom);
     },
     initializeExpress: (app) => {
         /**

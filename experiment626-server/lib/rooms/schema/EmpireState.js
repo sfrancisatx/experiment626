@@ -18,10 +18,13 @@ class EmpireState extends schema_1.Schema {
         this.name = "";
         this.ownerId = "";
         this.wealth = 0;
-        this.researchPoints = 0;
+        this.factoryCost = 0;
         this.speed = 0;
         this.range = 0;
         this.battlePower = 0;
+        this.speedCost = 0;
+        this.rangeCost = 0;
+        this.battlePowerCost = 0;
     }
 }
 exports.EmpireState = EmpireState;
@@ -44,7 +47,7 @@ __decorate([
 __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)
-], EmpireState.prototype, "researchPoints", void 0);
+], EmpireState.prototype, "factoryCost", void 0);
 __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)
@@ -57,3 +60,15 @@ __decorate([
     (0, schema_1.type)("number"),
     __metadata("design:type", Number)
 ], EmpireState.prototype, "battlePower", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], EmpireState.prototype, "speedCost", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], EmpireState.prototype, "rangeCost", void 0);
+__decorate([
+    (0, schema_1.type)("number"),
+    __metadata("design:type", Number)
+], EmpireState.prototype, "battlePowerCost", void 0);
