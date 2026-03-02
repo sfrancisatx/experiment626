@@ -366,109 +366,112 @@ Add Cloud SQL (`db-f1-micro` ~$8/month) + Firebase Auth (free) + Cloud Storage/C
 
 ### GCE VM Deployment Architecture
 
+**Current Implementation (Phase 1 - Single VM):**
 ```
-┌──────────────────────────────┐
-│       Cloud CDN / Storage    │
-│      (Static Frontend)       │
-└──────────────┬───────────────┘
-               │
-       HTTPS   │
+┌──────────────────────────────────────┐
+│         Users (Browser)              │
+└──────────────┬───────────────────────┘
+               │ HTTP/WebSocket
+               │ Port 80
                ▼
-┌──────────────────────────────┐
-│    GCE VM (e2-micro/small)   │
-│  Node.js + Colyseus + Express│
-│  (game server + API)         │
-│  + nginx reverse proxy       │
-└──────────────┬───────────────┘
-               │
-               │VPC (private)
-               ▼
-      ┌────────────────┐
-      │ Cloud SQL (PG) │
-      │  Users, assoc, │
-      │  game snapshots│
-      └────────────────┘
+┌──────────────────────────────────────┐
+│    GCE VM (e2-micro) - Public IP     │
+│  ┌────────────────────────────────┐  │
+│  │  nginx (port 80)               │  │
+│  │  - Serves static client files  │  │
+│  │  - Proxies /matchmake to :5111 │  │
+│  └────────────┬───────────────────┘  │
+│               │                      │
+│               ▼                      │
+│  ┌────────────────────────────────┐  │
+│  │  Node.js + Colyseus (port 5111)│  │
+│  │  - Game server via PM2         │  │
+│  │  - WebSocket connections       │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  Client files: /var/www/experiment626│
+│  Server code: /opt/experiment626     │
+└──────────────────────────────────────┘
+
+**Future (Phase 2 - with persistence):**
+Add Cloud SQL (PostgreSQL) for game state persistence
 ```
 
 ### GCE VM Setup Steps
 
-1. **Create VM instance:**
-   ```bash
-   gcloud compute instances create experiment626-vm \
-     --machine-type=e2-micro \
-     --zone=us-central1-a \
-     --image-family=ubuntu-2204-lts \
-     --image-project=ubuntu-os-cloud \
-     --boot-disk-size=10GB \
-     --tags=http-server,https-server
-   ```
+**Automated deployment scripts are available in `/deploy` directory.**
 
-2. **Install Node.js, Postgres client, and dependencies:**
+#### Initial Setup (One-time)
+
+1. **Create GCP project and VM** (automated via `deploy/gcp-setup.sh`):
+   ```bash
+   cd deploy
+   ./gcp-setup.sh
+   ```
+   This creates the VM, enables APIs, and configures firewall rules.
+
+2. **Set up VM environment** (run on VM via `deploy/setup-vm.sh`):
    ```bash
    # SSH into VM
    gcloud compute ssh experiment626-vm --zone=us-central1-a
    
-   # Install Node.js 20
-   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-   sudo apt-get install -y nodejs
+   # Copy and run setup script
+   # (or use gcloud compute scp to copy setup-vm.sh first)
+   ./setup-vm.sh
+   ```
+   This installs Node.js 20, nginx, PM2, and creates application directories.
+
+3. **Configure nginx** (one-time):
+   ```bash
+   # Copy nginx config from local machine
+   gcloud compute scp deploy/nginx.conf experiment626-vm:~/ --zone=us-central1-a
    
-   # Install nginx for reverse proxy
-   sudo apt-get install -y nginx
-   
-   # Install PM2 for process management
-   sudo npm install -g pm2
+   # On VM, apply the config
+   sudo cp ~/nginx.conf /etc/nginx/sites-available/experiment626
+   sudo ln -sf /etc/nginx/sites-available/experiment626 /etc/nginx/sites-enabled/
+   sudo rm -f /etc/nginx/sites-enabled/default
+   sudo nginx -t
+   sudo systemctl reload nginx
    ```
 
-3. **Deploy server code:**
+4. **Copy deployment script to VM**:
    ```bash
-   # Clone repo or rsync built server
-   git clone https://github.com/yourusername/experiment626.git
-   cd experiment626/experiment626-server
-   npm ci --only=production
-   npm run build
+   gcloud compute scp deploy/deploy.sh experiment626-vm:~/ --zone=us-central1-a
+   gcloud compute scp deploy/ecosystem.config.js experiment626-vm:~/ --zone=us-central1-a
    ```
 
-4. **Configure nginx reverse proxy** (`/etc/nginx/sites-available/default`):
-   ```nginx
-   server {
-       listen 80;
-       server_name your-domain.com;
-       
-       location / {
-           proxy_pass http://localhost:5111;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection "upgrade";
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-       }
-   }
-   ```
+#### Deploying Updates
 
-5. **Start server with PM2:**
-   ```bash
-   cd experiment626/experiment626-server
-   pm2 start npm --name "experiment626" -- start
-   pm2 save
-   pm2 startup  # Follow instructions to enable auto-restart on boot
-   ```
+Run the deploy script on the VM (pulls latest code, builds, and deploys):
+```bash
+# SSH into VM
+gcloud compute ssh experiment626-vm --zone=us-central1-a
 
-6. **Configure firewall:**
-   ```bash
-   gcloud compute firewall-rules create allow-http \
-     --allow tcp:80 \
-     --target-tags http-server
-   
-   gcloud compute firewall-rules create allow-https \
-     --allow tcp:443 \
-     --target-tags https-server
-   ```
+# Run deployment
+~/deploy.sh
+```
 
-7. **Set up HTTPS with Let's Encrypt:**
-   ```bash
-   sudo apt-get install -y certbot python3-certbot-nginx
-   sudo certbot --nginx -d your-domain.com
-   ```
+The deploy script:
+- Pulls latest code from GitHub (GCP-infra-impl branch)
+- Installs server dependencies and builds server
+- Installs client dependencies and builds client
+- Deploys client to `/var/www/experiment626/`
+- Restarts server via PM2
+
+#### Important Notes
+
+- **Git branch**: Ensure VM is on `GCP-infra-impl` branch (not `main`)
+- **Client URL**: Client uses `window.location.origin` to connect to server
+- **TypeScript**: Client build skips type checking to avoid unused variable errors
+- **PM2 auto-start**: Run `pm2 startup` and `pm2 save` to enable auto-restart on boot
+- **Browser cache**: Hard refresh (Cmd+Shift+R) after deployments to clear cached JS
+
+#### Current Deployment
+
+- **Live URL**: `http://35.239.231.145`
+- **VM**: `experiment626-vm` in `us-central1-a`
+- **Server**: Running on port 5111 via PM2
+- **Client**: Static files served by nginx from `/var/www/experiment626/`
 
 ### When to Switch from GCE VM to Cloud Run
 
