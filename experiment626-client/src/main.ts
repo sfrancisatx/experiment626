@@ -4,6 +4,7 @@ import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
 import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
 import type { StarState } from "colyseusTypes/StarState";
+import { ensureAuthenticated, getIdToken } from "./firebase";
 
 // ===== HTML ELEMENTS =====
 const statusEl = document.getElementById("status")!;
@@ -106,10 +107,14 @@ for (const command of commands) {
 if (!window.location.hash || window.location.hash === "#lobby") {
     showLandingPage(client);
 } else if (window.location.hash.startsWith("#game-")) {
-    const roomId = window.location.hash.replace("#game-", "");
-    const empireName = prompt("Enter your empire name:");
-    let pixiInitialized = false;
-    client.joinById<GalaxyState>(roomId, { empireName }).then(async (room: Room<GalaxyState>) => {
+    // Authenticate and join the game room
+    (async () => {
+        const user = await ensureAuthenticated();
+        const idToken = await getIdToken();
+        const roomId = window.location.hash.replace("#game-", "");
+        const empireName = prompt("Enter your empire name:") || user.displayName || "Anonymous";
+        let pixiInitialized = false;
+        client.joinById<GalaxyState>(roomId, { empireName, idToken }).then(async (room: Room<GalaxyState>) => {
         console.log("✅ Joined room:", room.roomId);
         statusEl.textContent = `✅ Connected to room: ${room.roomId}`;
 
@@ -279,6 +284,7 @@ if (!window.location.hash || window.location.hash === "#lobby") {
             });
         });
     }
+    })();
 }
 
 // ===== PIXI UTILITIES =====

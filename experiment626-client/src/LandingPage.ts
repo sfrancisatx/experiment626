@@ -2,8 +2,13 @@
 // This module creates and manages the lobby landing page UI and logic, without breaking the existing UI.
 
 import { Client, Room } from "colyseus.js";
+import { ensureAuthenticated, getIdToken } from "./firebase";
 
-export function showLandingPage(client: Client) {
+export async function showLandingPage(client: Client) {
+  // Ensure user is authenticated (anonymous auth if not logged in)
+  const user = await ensureAuthenticated();
+  console.log("Authenticated as:", user.uid, user.isAnonymous ? "(anonymous)" : "");
+
   // Create landing page container
   const landing = document.createElement("div");
   landing.id = "landingPage";
@@ -19,12 +24,22 @@ export function showLandingPage(client: Client) {
   title.textContent = "🌌 Welcome to Experiment 626";
   landing.appendChild(title);
 
+  // Auth status
+  const authStatus = document.createElement("p");
+  authStatus.style.fontSize = "0.9rem";
+  authStatus.style.color = "#666";
+  authStatus.textContent = user.isAnonymous 
+    ? "Playing as Guest" 
+    : `Logged in as ${user.displayName || user.email || "User"}`;
+  landing.appendChild(authStatus);
+
   // Name input
   const nameLabel = document.createElement("label");
   nameLabel.textContent = "Player Name: ";
   const nameInput = document.createElement("input");
   nameInput.type = "text";
   nameInput.placeholder = "Enter your name";
+  nameInput.value = user.displayName || "";
   nameInput.required = true;
   nameInput.style.marginRight = "1rem";
   nameLabel.appendChild(nameInput);
@@ -53,12 +68,13 @@ export function showLandingPage(client: Client) {
   const createBtn = document.createElement("button");
   createBtn.textContent = "➕ Create New Game";
   createBtn.style.marginLeft = "1rem";
-  createBtn.onclick = () => {
+  createBtn.onclick = async () => {
     if (!nameInput.value) {
       alert("Please enter your name first.");
       return;
     }
-    client.joinOrCreate("lobby", { name: nameInput.value }).then(lobbyRoom => {
+    const idToken = await getIdToken();
+    client.joinOrCreate("lobby", { name: nameInput.value, idToken }).then(lobbyRoom => {
       lobbyRoom.send("create_game", { options: { name: nameInput.value + "'s Galaxy" } });
       lobbyRoom.onMessage("game_created", ({ roomId }) => {
         window.location.hash = "#game-" + roomId;
@@ -76,8 +92,9 @@ export function showLandingPage(client: Client) {
   }
 
   // Request and render game list
-  function requestGameList() {
-    client.joinOrCreate("lobby", { name: nameInput.value || "Guest" }).then(lobbyRoom => {
+  async function requestGameList() {
+    const idToken = await getIdToken();
+    client.joinOrCreate("lobby", { name: nameInput.value || "Guest", idToken }).then(lobbyRoom => {
       lobbyRoom.send("list_games");
       lobbyRoom.onMessage("galaxy_list", (games) => {
         gameList.innerHTML = "";
@@ -92,7 +109,7 @@ export function showLandingPage(client: Client) {
             li.textContent = `${g.name} [${g.status}, ${g.playerCount} players]`;
             const joinBtn = document.createElement("button");
             joinBtn.textContent = "Join";
-            joinBtn.onclick = () => {
+            joinBtn.onclick = async () => {
               lobbyRoom.send("join_game", { roomId: g.roomId });
               lobbyRoom.onMessage("game_join", ({ roomId }) => {
                 window.location.hash = "#game-" + roomId;

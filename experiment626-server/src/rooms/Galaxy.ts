@@ -8,6 +8,8 @@ import { FleetState } from "./schema/FleetState";
 import { StarState } from "./schema/StarState";
 import { ArraySchema } from "@colyseus/schema";
 import { PlayerViewState } from "./schema/PlayerViewState";
+import { verifyIdToken } from "../firebase-admin";
+import { upsertUser, getOrCreateGameAssociation, getGameAssociation, markUserDisconnected } from "../services/userService";
 
 interface createOptions {
     vpId?: string;
@@ -42,7 +44,9 @@ export class Galaxy extends Room<GalaxyState> {
     fleetList: Map<string, Fleet> = new Map<string, Fleet>(); //Fleet ID -> Fleet
     starList: Map<string, Star> = new Map<string, Star>(); //Star ID -> Star
     empireList: Map<string, Empire> = new Map<string, Empire>(); //Empire ID -> Empire
-    playerToEmpireList: Map<string, string> = new Map<string, string>(); //Player ID -> Empire ID
+    playerToEmpireList: Map<string, string> = new Map<string, string>(); //Player ID (sessionId) -> Empire ID
+    userIdToEmpireList: Map<string, string> = new Map<string, string>(); //Firebase User ID -> Empire ID
+    clientToUserMap: Map<string, string> = new Map<string, string>(); //Client sessionId -> Firebase User ID
     idCounter: number = 0;
     skipToNextTurn: boolean = false;
     nextTurnTime: number = Number.MAX_SAFE_INTEGER;
@@ -958,23 +962,83 @@ export class Galaxy extends Room<GalaxyState> {
         let data = {content1, content2, content3};
         this.clients.getById(clientId)?.send("debugInfo", data);
     }
-    onJoin(client: Client, options: {empireName: string}) {
+    async onJoin(client: Client, options: {empireName?: string, idToken?: string}) {
+        let userId: string | null = null;
+        let displayName = options.empireName || "Anonymous Player";
+
+        // Verify Firebase token if provided
+        if (options.idToken) {
+            const decodedToken = await verifyIdToken(options.idToken);
+            if (decodedToken) {
+                userId = decodedToken.uid;
+                displayName = decodedToken.name || displayName;
+                
+                // Create or update user in database
+                await upsertUser(userId, displayName, decodedToken.email, 
+                    decodedToken.firebase?.sign_in_provider || 'anonymous');
+                
+                // Track client session to user mapping
+                this.clientToUserMap.set(client.sessionId, userId);
+            }
+        }
+
         this.state.playerIdList.push(client.sessionId);
         const playerViewState = new PlayerViewState();
         playerViewState.sessionId = client.sessionId;
         client.send("playerViewState", playerViewState);
         this.playerViewStateList.set(client.sessionId, playerViewState);
-        if (options.empireName) {
-            const empireId = this.idGenerator();
-            this.empireList.set(empireId, new Empire(new EmpireState(), empireId, options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
-            this.playerToEmpireList.set(client.sessionId, empireId);
+
+        // Check if user has an existing empire in this galaxy (re-attachment)
+        let empireId: string;
+        let reattached = false;
+        
+        if (userId) {
+            // Check for existing game association
+            const existingAssociation = await getGameAssociation(userId, this.roomId);
+            if (existingAssociation && this.empireList.has(existingAssociation.empireId)) {
+                // Re-attach to existing empire
+                empireId = existingAssociation.empireId;
+                const empire = this.empireList.get(empireId)!;
+                empire.state.ownerId = client.sessionId; // Update to new session ID
+                this.playerToEmpireList.set(client.sessionId, empireId);
+                this.userIdToEmpireList.set(userId, empireId);
+                
+                // Update association to mark as active
+                await getOrCreateGameAssociation(userId, this.roomId, empireId);
+                
+                console.log(`User ${userId} re-attached to empire ${empireId} in galaxy ${this.roomId}`);
+                reattached = true;
+            }
         }
-        else {
-            console.error(`\nNo empire name provided\nOwner ID: ${client.sessionId}\n Location: Galaxy.onJoin()`);
-            const empireId = this.idGenerator();
-            this.empireList.set(empireId, new Empire(new EmpireState(), empireId, "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+
+        // If no existing empire, create a new one
+        if (!reattached) {
+            const empireName = options.empireName || displayName + "'s Empire";
+            empireId = this.idGenerator();
+            this.empireList.set(empireId, new Empire(
+                new EmpireState(), 
+                empireId, 
+                empireName, 
+                client.sessionId, 
+                this.state.startingWealth, 
+                this.state.factoryCost, 
+                this.state.startingSpeed, 
+                this.state.startingRange, 
+                this.state.startingBattlePower, 
+                this.state.startingSpeedCost, 
+                this.state.startingRangeCost, 
+                this.state.startingBattlePowerCost
+            ));
             this.playerToEmpireList.set(client.sessionId, empireId);
+            
+            if (userId) {
+                this.userIdToEmpireList.set(userId, empireId);
+                // Persist the game association
+                await getOrCreateGameAssociation(userId, this.roomId, empireId);
+                console.log(`User ${userId} created new empire ${empireId} in galaxy ${this.roomId}`);
+            }
         }
-        client.send("yourIDs", {Id: client.sessionId, empireId: this.playerToEmpireList.get(client.sessionId)});
+
+        client.send("yourIDs", {Id: client.sessionId, empireId: empireId!, userId: userId});
     }
 }
