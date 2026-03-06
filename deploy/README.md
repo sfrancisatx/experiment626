@@ -204,3 +204,30 @@ sudo systemctl restart nginx
 - [ ] Add Firebase Authentication
 - [ ] Set up Cloud Monitoring alerts
 - [ ] Deploy client to Cloud Storage + CDN
+
+### Notes to myself: 
+Next steps:
+1. SSH into the VM
+2. Run the setup-vm.sh script
+3. Clone your repository and deploy
+
+Save this information:
+  Project ID: experiment626-sandbox
+  VM Name: experiment626-vm
+  Zone: us-central1-a
+  External IP: 35.239.231.145
+
+  The key fingerprint is:
+SHA256:XOHGvDeG9djCKhCwSqDIkTE3nx0Oh35h2XHb/+pWLZw sfrancis@Scotts-MacBook-Pro.local
+The key's randomart image is:
++---[RSA 3072]----+
+|.+oo...oo.o.     |
+|+o+ o+*+.=..o    |
+|o.. oooo. *...   |
+| . . . + o = +.  |
+|  .   o S o B.oo.|
+|       .   + oE +|
+|        . .    o.|
+|         .    .. |
+|             oo  |
++----[SHA256]-----+
