@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User account - mirrors Firebase user with game-specific fields
+model User {
+  id           String   @id // Firebase uid
+  email        String?
+  displayName  String
+  avatarUrl    String?
+  authProvider String   @default("anonymous") // 'anonymous', 'email', 'google'
+  createdAt    DateTime @default(now())
+  lastLoginAt  DateTime @default(now())
+  isActive     Boolean  @default(true)
+
+  // Relations
+  gameAssociations UserGameAssociation[]
+
+  @@map("users")
+}
+
+// Maps a user to a specific galaxy + empire for re-attachment
+model UserGameAssociation {
+  id                String   @id @default(uuid())
+  userId            String
+  galaxyId          String   // Colyseus room ID or logical galaxy ID
+  empireId          String   // EmpireState.id in the game
+  joinedAt          DateTime @default(now())
+  lastActiveAt      DateTime @default(now())
+  isCurrentlyActive Boolean  @default(true)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([userId, galaxyId]) // One empire per user per galaxy
+  @@index([galaxyId])
+  @@map("user_game_associations")
+}
