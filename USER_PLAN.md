@@ -177,37 +177,62 @@ Optional (future):
 4. Add basic database config (local Postgres via Docker or local install).
 5. Implement migration scripts for `users` and `user_game_associations`.
 
-### Phase 1: Anonymous Auth + Persistence
-1. Add **Firebase client SDK** to the client:
+### Phase 1: Anonymous Auth + Persistence ✅ COMPLETED
+1. ✅ Add **Firebase client SDK** to the client:
    - On first visit, call `signInAnonymously()` → get a Firebase `uid` + ID token.
    - Store the token; pass it to all server requests and Colyseus connections.
-2. Add **Firebase Admin SDK** to the server:
+2. ✅ Add **Firebase Admin SDK** to the server:
    - Implement middleware: `verifyIdToken(token)` → extract `userId`.
-3. On first verified connection, create a `UserAccount` row in Postgres.
-4. Update **Galaxy.onJoin** to:
+3. ✅ On first verified connection, create a `UserAccount` row in Postgres.
+4. ✅ Update **Galaxy.onJoin** to:
    - Verify token, extract `userId`
    - Store `UserGameAssociation` mapping userId → empireId
-5. Update **Lobby** to:
+5. ✅ Update **Lobby** to:
    - Use `userId` (instead of name only) when listing/creating games
 
-### Phase 2: Email Link + Google Sign-In
-1. Enable **Email Link sign-in** in Firebase Console.
-2. Add email sign-in flow to client UI:
+**Implementation notes:**
+- Firebase client SDK initialized in `experiment626-client/src/firebase.ts`
+- Firebase Admin SDK initialized in `experiment626-server/src/firebase-admin.ts`
+- User service created in `experiment626-server/src/services/userService.ts`
+- Prisma schema defines `User` and `UserGameAssociation` models
+- Galaxy room verifies tokens and manages user-empire associations
+
+### Phase 2: Email Link + Google Sign-In ✅ COMPLETED
+1. ✅ Enable **Email Link sign-in** in Firebase Console.
+2. ✅ Add email sign-in flow to client UI:
    - User enters email → Firebase sends magic link → user clicks → Firebase authenticates
    - If user was previously anonymous, link accounts using `linkWithCredential()`
-3. Enable **Google sign-in** in Firebase Console.
-4. Add "Sign in with Google" button to client:
+3. ✅ Enable **Google sign-in** in Firebase Console.
+4. ✅ Add "Sign in with Google" button to client:
    - Uses Firebase `signInWithPopup()` or `signInWithRedirect()`
    - If user was previously anonymous, link accounts
-5. On account linking/upgrade:
+5. ✅ On account linking/upgrade:
    - Update `UserAccount` row (email, displayName, authProvider)
    - `user_game_associations` stay intact (same `userId` / Firebase `uid`)
 
-### Phase 3: Dashboard + Re-Attachment UX
-1. Dashboard page listing user's galaxies and status (from `user_game_associations`).
-2. "Rejoin" button that passes token + galaxyId to Colyseus → re-attaches to empire.
-3. Better error handling for auth failures, expired tokens, etc.
-4. Display of current user name/avatar in UI.
+**Implementation notes:**
+- Google Sign-In and Email Link functions added to `firebase.ts`
+- Account linking implemented with automatic fallback for existing accounts
+- Auth UI added to `LandingPage.ts` with sign-in/sign-out buttons
+- Email sign-in callback handler added to `main.ts`
+
+### Phase 3: Dashboard + Re-Attachment UX ✅ COMPLETED
+1. ✅ Dashboard page listing user's galaxies and status (from `user_game_associations`).
+2. ✅ "Rejoin" button that passes token + galaxyId to Colyseus → re-attaches to empire.
+3. ⚠️ Better error handling for auth failures, expired tokens, etc. (basic implementation)
+4. ✅ Display of current user name/avatar in UI.
+
+**Implementation notes:**
+- API endpoint `/api/user/games` added to fetch user's game associations
+- "Your Games" section added to landing page showing user's active games
+- Rejoin functionality implemented with one-click return to existing empires
+- `autoDispose = false` added to Galaxy rooms to persist games when players leave
+- User display name shown in auth status and pre-filled in name input
+
+**Known limitations:**
+- Game state only persists while server is running (not serialized to DB)
+- No cleanup mechanism for old/disposed game associations yet
+- Error handling is basic (console logs, alerts)
 
 ### Phase 4: Containerization + Cloud Deployment
 *(Detailed in `ARCHITECTURE_PLAN.md`)*
