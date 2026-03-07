@@ -5,6 +5,8 @@ import { auth } from "@colyseus/auth";
 import path from 'path';
 //import serveIndex from 'serve-index';
 import express from 'express';
+import { verifyIdToken } from "./firebase-admin";
+import { getUserGalaxies } from "./services/userService";
 
 
 /**
@@ -31,6 +33,30 @@ export default config({
          */
         app.get("/hello_world", (req, res) => {
             res.send("It's time to kick ass and chew bubblegum!");
+        });
+
+        // API: Get user's game associations
+        app.get("/api/user/games", async (req, res) => {
+            try {
+                const authHeader = req.headers.authorization;
+                if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                    return res.status(401).json({ error: "Missing or invalid authorization header" });
+                }
+
+                const idToken = authHeader.split("Bearer ")[1];
+                const decodedToken = await verifyIdToken(idToken);
+                if (!decodedToken) {
+                    return res.status(401).json({ error: "Invalid token" });
+                }
+
+                const userId = decodedToken.uid;
+                const games = await getUserGalaxies(userId);
+                
+                res.json({ games });
+            } catch (error) {
+                console.error("Error fetching user games:", error);
+                res.status(500).json({ error: "Internal server error" });
+            }
         });
 
         /**

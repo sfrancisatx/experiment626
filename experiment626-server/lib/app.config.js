@@ -9,6 +9,8 @@ const playground_1 = require("@colyseus/playground");
 const path_1 = __importDefault(require("path"));
 //import serveIndex from 'serve-index';
 const express_1 = __importDefault(require("express"));
+const firebase_admin_1 = require("./firebase-admin");
+const userService_1 = require("./services/userService");
 /**
  * Import your Room files
  */
@@ -29,6 +31,27 @@ exports.default = (0, tools_1.default)({
          */
         app.get("/hello_world", (req, res) => {
             res.send("It's time to kick ass and chew bubblegum!");
+        });
+        // API: Get user's game associations
+        app.get("/api/user/games", async (req, res) => {
+            try {
+                const authHeader = req.headers.authorization;
+                if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                    return res.status(401).json({ error: "Missing or invalid authorization header" });
+                }
+                const idToken = authHeader.split("Bearer ")[1];
+                const decodedToken = await (0, firebase_admin_1.verifyIdToken)(idToken);
+                if (!decodedToken) {
+                    return res.status(401).json({ error: "Invalid token" });
+                }
+                const userId = decodedToken.uid;
+                const games = await (0, userService_1.getUserGalaxies)(userId);
+                res.json({ games });
+            }
+            catch (error) {
+                console.error("Error fetching user games:", error);
+                res.status(500).json({ error: "Internal server error" });
+            }
         });
         /**
          * Use @colyseus/playground

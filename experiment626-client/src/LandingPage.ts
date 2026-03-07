@@ -9,7 +9,9 @@ import {
   sendEmailLink, 
   completeEmailSignIn,
   signOut,
-  isAnonymous 
+  isAnonymous,
+  fetchUserGames,
+  type GameAssociation
 } from "./firebase";
 
 export async function showLandingPage(client: Client) {
@@ -148,6 +150,66 @@ export async function showLandingPage(client: Client) {
 
   landing.appendChild(document.createElement("br"));
   landing.appendChild(document.createElement("br"));
+
+  // Your Games section (games user has joined before)
+  const yourGamesSection = document.createElement("div");
+  yourGamesSection.id = "yourGamesSection";
+  yourGamesSection.style.marginBottom = "1.5rem";
+  yourGamesSection.style.padding = "1rem";
+  yourGamesSection.style.background = "#d4edda";
+  yourGamesSection.style.borderRadius = "4px";
+  yourGamesSection.style.display = "none"; // Hidden until we have games
+
+  const yourGamesLabel = document.createElement("div");
+  yourGamesLabel.style.fontWeight = "bold";
+  yourGamesLabel.style.marginBottom = "0.5rem";
+  yourGamesLabel.textContent = "🎮 Your Games:";
+  yourGamesSection.appendChild(yourGamesLabel);
+
+  const yourGamesList = document.createElement("ul");
+  yourGamesList.id = "yourGamesList";
+  yourGamesList.style.listStyle = "none";
+  yourGamesList.style.padding = "0";
+  yourGamesList.style.margin = "0";
+  yourGamesSection.appendChild(yourGamesList);
+
+  landing.appendChild(yourGamesSection);
+
+  // Fetch and display user's games
+  async function loadUserGames() {
+    const games = await fetchUserGames();
+    if (games.length > 0) {
+      yourGamesSection.style.display = "block";
+      yourGamesList.innerHTML = "";
+      
+      games.forEach((game: GameAssociation) => {
+        const li = document.createElement("li");
+        li.style.marginBottom = "0.5rem";
+        li.style.display = "flex";
+        li.style.alignItems = "center";
+        li.style.justifyContent = "space-between";
+
+        const gameInfo = document.createElement("span");
+        const lastActive = new Date(game.lastActiveAt).toLocaleDateString();
+        gameInfo.textContent = `Galaxy ${game.galaxyId.substring(0, 8)}... (Last played: ${lastActive})`;
+        li.appendChild(gameInfo);
+
+        const rejoinBtn = document.createElement("button");
+        rejoinBtn.textContent = "🔄 Rejoin";
+        rejoinBtn.style.marginLeft = "0.5rem";
+        rejoinBtn.onclick = () => {
+          window.location.hash = "#game-" + game.galaxyId;
+          window.location.reload();
+        };
+        li.appendChild(rejoinBtn);
+
+        yourGamesList.appendChild(li);
+      });
+    }
+  }
+
+  // Load user games on page load
+  loadUserGames();
 
   // Game list
   const gameListLabel = document.createElement("div");

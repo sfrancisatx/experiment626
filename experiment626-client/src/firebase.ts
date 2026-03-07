@@ -156,4 +156,39 @@ export function isAnonymous(): boolean {
   return auth.currentUser?.isAnonymous ?? true;
 }
 
+// Fetch user's game associations from the server
+export interface GameAssociation {
+  id: string;
+  userId: string;
+  galaxyId: string;
+  empireId: string;
+  joinedAt: string;
+  lastActiveAt: string;
+  isCurrentlyActive: boolean;
+}
+
+export async function fetchUserGames(): Promise<GameAssociation[]> {
+  const token = await getIdToken();
+  if (!token) return [];
+
+  try {
+    const response = await fetch("/api/user/games", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch user games:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.games || [];
+  } catch (error) {
+    console.error("Error fetching user games:", error);
+    return [];
+  }
+}
+
 export type { User };

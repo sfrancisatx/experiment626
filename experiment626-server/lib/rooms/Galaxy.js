@@ -10,6 +10,8 @@ const EmpireState_1 = require("./schema/EmpireState");
 const FleetState_1 = require("./schema/FleetState");
 const StarState_1 = require("./schema/StarState");
 const PlayerViewState_1 = require("./schema/PlayerViewState");
+const firebase_admin_1 = require("../firebase-admin");
+const userService_1 = require("../services/userService");
 const gridUnitsPerLightYear = 1;
 const hoursPerTurn = 0.008333333333; //0.008333333333 = 1 turn every 30 seconds 0.002777777778 = 1 turn every 10 seconds 0.0002777777778 = 1 turn every second
 const startingRange = 10000;
@@ -25,7 +27,9 @@ class Galaxy extends core_1.Room {
         this.fleetList = new Map(); //Fleet ID -> Fleet
         this.starList = new Map(); //Star ID -> Star
         this.empireList = new Map(); //Empire ID -> Empire
-        this.playerToEmpireList = new Map(); //Player ID -> Empire ID
+        this.playerToEmpireList = new Map(); //Player ID (sessionId) -> Empire ID
+        this.userIdToEmpireList = new Map(); //Firebase User ID -> Empire ID
+        this.clientToUserMap = new Map(); //Client sessionId -> Firebase User ID
         this.idCounter = 0;
         this.skipToNextTurn = false;
         this.nextTurnTime = Number.MAX_SAFE_INTEGER;
@@ -945,24 +949,59 @@ class Galaxy extends core_1.Room {
         let data = { content1, content2, content3 };
         this.clients.getById(clientId)?.send("debugInfo", data);
     }
-    onJoin(client, options) {
+    async onJoin(client, options) {
+        let userId = null;
+        let displayName = options.empireName || "Anonymous Player";
+        // Verify Firebase token if provided
+        if (options.idToken) {
+            const decodedToken = await (0, firebase_admin_1.verifyIdToken)(options.idToken);
+            if (decodedToken) {
+                userId = decodedToken.uid;
+                displayName = decodedToken.name || displayName;
+                // Create or update user in database
+                await (0, userService_1.upsertUser)(userId, displayName, decodedToken.email, decodedToken.firebase?.sign_in_provider || 'anonymous');
+                // Track client session to user mapping
+                this.clientToUserMap.set(client.sessionId, userId);
+            }
+        }
         this.state.playerIdList.push(client.sessionId);
         const playerViewState = new PlayerViewState_1.PlayerViewState();
         playerViewState.sessionId = client.sessionId;
         client.send("playerViewState", playerViewState);
         this.playerViewStateList.set(client.sessionId, playerViewState);
-        if (options.empireName) {
-            const empireId = this.idGenerator();
-            this.empireList.set(empireId, new Empire_1.Empire(new EmpireState_1.EmpireState(), empireId, options.empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
-            this.playerToEmpireList.set(client.sessionId, empireId);
+        // Check if user has an existing empire in this galaxy (re-attachment)
+        let empireId;
+        let reattached = false;
+        if (userId) {
+            // Check for existing game association
+            const existingAssociation = await (0, userService_1.getGameAssociation)(userId, this.roomId);
+            if (existingAssociation && this.empireList.has(existingAssociation.empireId)) {
+                // Re-attach to existing empire
+                empireId = existingAssociation.empireId;
+                const empire = this.empireList.get(empireId);
+                empire.state.ownerId = client.sessionId; // Update to new session ID
+                this.playerToEmpireList.set(client.sessionId, empireId);
+                this.userIdToEmpireList.set(userId, empireId);
+                // Update association to mark as active
+                await (0, userService_1.getOrCreateGameAssociation)(userId, this.roomId, empireId);
+                console.log(`User ${userId} re-attached to empire ${empireId} in galaxy ${this.roomId}`);
+                reattached = true;
+            }
         }
-        else {
-            console.error(`\nNo empire name provided\nOwner ID: ${client.sessionId}\n Location: Galaxy.onJoin()`);
-            const empireId = this.idGenerator();
-            this.empireList.set(empireId, new Empire_1.Empire(new EmpireState_1.EmpireState(), empireId, "Default Empire Name Resolve Failure", client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
+        // If no existing empire, create a new one
+        if (!reattached) {
+            const empireName = options.empireName || displayName + "'s Empire";
+            empireId = this.idGenerator();
+            this.empireList.set(empireId, new Empire_1.Empire(new EmpireState_1.EmpireState(), empireId, empireName, client.sessionId, this.state.startingWealth, this.state.factoryCost, this.state.startingSpeed, this.state.startingRange, this.state.startingBattlePower, this.state.startingSpeedCost, this.state.startingRangeCost, this.state.startingBattlePowerCost));
             this.playerToEmpireList.set(client.sessionId, empireId);
+            if (userId) {
+                this.userIdToEmpireList.set(userId, empireId);
+                // Persist the game association
+                await (0, userService_1.getOrCreateGameAssociation)(userId, this.roomId, empireId);
+                console.log(`User ${userId} created new empire ${empireId} in galaxy ${this.roomId}`);
+            }
         }
-        client.send("yourIDs", { Id: client.sessionId, empireId: this.playerToEmpireList.get(client.sessionId) });
+        client.send("yourIDs", { Id: client.sessionId, empireId: empireId, userId: userId });
     }
 }
 exports.Galaxy = Galaxy;
