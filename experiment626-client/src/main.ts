@@ -4,7 +4,7 @@ import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
 import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
 import type { StarState } from "colyseusTypes/StarState";
-import { ensureAuthenticated, getIdToken } from "./firebase";
+import { ensureAuthenticated, getIdToken, completeEmailSignIn } from "./firebase";
 
 // ===== HTML ELEMENTS =====
 const statusEl = document.getElementById("status")!;
@@ -104,7 +104,21 @@ for (const command of commands) {
     commandSelect.appendChild(option);
 }
 // ===== MAIN =====
-if (!window.location.hash || window.location.hash === "#lobby") {
+// Handle email sign-in callback first
+(async () => {
+    if (window.location.hash === "#email-signin" || window.location.href.includes("apiKey=")) {
+        const user = await completeEmailSignIn();
+        if (user) {
+            console.log("Email sign-in completed:", user.email);
+            // Redirect to lobby after successful sign-in
+            window.location.hash = "#lobby";
+            window.location.reload();
+            return;
+        }
+    }
+})();
+
+if (!window.location.hash || window.location.hash === "#lobby" || window.location.hash === "#email-signin") {
     showLandingPage(client);
 } else if (window.location.hash.startsWith("#game-")) {
     // Authenticate and join the game room

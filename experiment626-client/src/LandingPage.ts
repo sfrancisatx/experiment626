@@ -2,7 +2,15 @@
 // This module creates and manages the lobby landing page UI and logic, without breaking the existing UI.
 
 import { Client, Room } from "colyseus.js";
-import { ensureAuthenticated, getIdToken } from "./firebase";
+import { 
+  ensureAuthenticated, 
+  getIdToken, 
+  signInWithGoogle, 
+  sendEmailLink, 
+  completeEmailSignIn,
+  signOut,
+  isAnonymous 
+} from "./firebase";
 
 export async function showLandingPage(client: Client) {
   // Ensure user is authenticated (anonymous auth if not logged in)
@@ -26,22 +34,115 @@ export async function showLandingPage(client: Client) {
 
   // Auth status
   const authStatus = document.createElement("p");
+  authStatus.id = "authStatus";
   authStatus.style.fontSize = "0.9rem";
   authStatus.style.color = "#666";
-  authStatus.textContent = user.isAnonymous 
-    ? "Playing as Guest" 
-    : `Logged in as ${user.displayName || user.email || "User"}`;
+  updateAuthStatus(user);
   landing.appendChild(authStatus);
 
-  // Name input
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = "Player Name: ";
+  function updateAuthStatus(u: typeof user) {
+    authStatus.textContent = u.isAnonymous 
+      ? "Playing as Guest" 
+      : `Logged in as ${u.displayName || u.email || "User"}`;
+  }
+
+  // Name input (declared early so auth section can reference it)
   const nameInput = document.createElement("input");
   nameInput.type = "text";
   nameInput.placeholder = "Enter your name";
   nameInput.value = user.displayName || "";
   nameInput.required = true;
   nameInput.style.marginRight = "1rem";
+
+  // Auth buttons section (only show if anonymous)
+  const authSection = document.createElement("div");
+  authSection.id = "authSection";
+  authSection.style.marginBottom = "1rem";
+  authSection.style.padding = "1rem";
+  authSection.style.background = "#e9ecef";
+  authSection.style.borderRadius = "4px";
+
+  if (user.isAnonymous) {
+    const authLabel = document.createElement("p");
+    authLabel.style.margin = "0 0 0.5rem 0";
+    authLabel.style.fontWeight = "bold";
+    authLabel.textContent = "Sign in to save your progress:";
+    authSection.appendChild(authLabel);
+
+    // Google Sign-In button
+    const googleBtn = document.createElement("button");
+    googleBtn.textContent = "🔵 Sign in with Google";
+    googleBtn.style.marginRight = "0.5rem";
+    googleBtn.onclick = async () => {
+      try {
+        googleBtn.disabled = true;
+        googleBtn.textContent = "Signing in...";
+        const newUser = await signInWithGoogle();
+        updateAuthStatus(newUser);
+        nameInput.value = newUser.displayName || nameInput.value;
+        authSection.innerHTML = "<p style='color: green;'>✓ Signed in as " + (newUser.displayName || newUser.email) + "</p>";
+      } catch (error: any) {
+        console.error("Google sign-in error:", error);
+        googleBtn.disabled = false;
+        googleBtn.textContent = "🔵 Sign in with Google";
+        alert("Sign-in failed: " + error.message);
+      }
+    };
+    authSection.appendChild(googleBtn);
+
+    // Email Link section
+    const emailContainer = document.createElement("div");
+    emailContainer.style.marginTop = "0.5rem";
+    
+    const emailInput = document.createElement("input");
+    emailInput.type = "email";
+    emailInput.placeholder = "your@email.com";
+    emailInput.style.marginRight = "0.5rem";
+    emailContainer.appendChild(emailInput);
+
+    const emailBtn = document.createElement("button");
+    emailBtn.textContent = "📧 Send Magic Link";
+    emailBtn.onclick = async () => {
+      if (!emailInput.value || !emailInput.value.includes("@")) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+      try {
+        emailBtn.disabled = true;
+        emailBtn.textContent = "Sending...";
+        await sendEmailLink(emailInput.value);
+        emailContainer.innerHTML = "<p style='color: green;'>✓ Check your email for the sign-in link!</p>";
+      } catch (error: any) {
+        console.error("Email link error:", error);
+        emailBtn.disabled = false;
+        emailBtn.textContent = "📧 Send Magic Link";
+        alert("Failed to send email: " + error.message);
+      }
+    };
+    emailContainer.appendChild(emailBtn);
+    authSection.appendChild(emailContainer);
+  } else {
+    // Show signed-in state with sign-out option
+    const signedInMsg = document.createElement("p");
+    signedInMsg.style.margin = "0";
+    signedInMsg.innerHTML = `✓ Signed in as <strong>${user.displayName || user.email}</strong>`;
+    authSection.appendChild(signedInMsg);
+
+    const signOutBtn = document.createElement("button");
+    signOutBtn.textContent = "Sign Out";
+    signOutBtn.style.marginTop = "0.5rem";
+    signOutBtn.onclick = async () => {
+      await signOut();
+      window.location.reload();
+    };
+    authSection.appendChild(signOutBtn);
+  }
+
+  landing.appendChild(authSection);
+
+  // Name input label (nameInput already declared above)
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Player Name: ";
   nameLabel.appendChild(nameInput);
   landing.appendChild(nameLabel);
 
