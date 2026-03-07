@@ -41,6 +41,8 @@ const galaxySize = new Map<string, number>([
 ]);
 
 export class Galaxy extends Room<GalaxyState> {
+    autoDispose = false; // Keep room alive even when all players leave
+    
     fleetList: Map<string, Fleet> = new Map<string, Fleet>(); //Fleet ID -> Fleet
     starList: Map<string, Star> = new Map<string, Star>(); //Star ID -> Star
     empireList: Map<string, Empire> = new Map<string, Empire>(); //Empire ID -> Empire
