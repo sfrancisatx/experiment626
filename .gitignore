@@ -1,3 +1,12 @@
 node_modules
 bundle.js
 .DS_Store
+
+# Build outputs
+experiment626-server/build/
+experiment626-server/lib/
+experiment626-client/dist/
+
+# Environment files
+.env
+.env.local
