@@ -4,6 +4,7 @@ export class GalaxyState extends Schema {
 
   @type("number") clockTime: number = 0;
   @type("string") id: string = "";
+  @type("string") galaxyName: string = "";
   @type(["string"]) playerIdList: ArraySchema<string> = new ArraySchema<string>();
   @type("number") startingSpeed: number = 0;
   @type("number") startingRange: number = 0;

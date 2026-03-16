@@ -236,9 +236,13 @@ export async function showLandingPage(client: Client) {
       alert("Please enter your name first.");
       return;
     }
+    const galaxyName = prompt("Enter a name for your galaxy:", nameInput.value + "'s Galaxy");
+    if (!galaxyName) {
+      return; // User cancelled
+    }
     const idToken = await getIdToken();
     client.joinOrCreate("lobby", { name: nameInput.value, idToken }).then(lobbyRoom => {
-      lobbyRoom.send("create_game", { options: { name: nameInput.value + "'s Galaxy" } });
+      lobbyRoom.send("create_game", { options: { galaxyName: galaxyName } });
       lobbyRoom.onMessage("game_created", ({ roomId }) => {
         window.location.hash = "#game-" + roomId;
         window.location.reload();

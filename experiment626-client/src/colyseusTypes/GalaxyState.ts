@@ -5,12 +5,13 @@
 // GENERATED USING @colyseus/schema 3.0.39
 // 
 
-import { Schema, type, ArraySchema, MapSchema, SetSchema, type DataChange } from '@colyseus/schema';
-import { OccupiedSpaceState } from './OccupiedSpaceState'
+import { Schema, type, ArraySchema, MapSchema, SetSchema, DataChange } from '@colyseus/schema';
+
 
 export class GalaxyState extends Schema {
     @type("number") public clockTime!: number;
     @type("string") public id!: string;
+    @type("string") public galaxyName!: string;
     @type([ "string" ]) public playerIdList: ArraySchema<string> = new ArraySchema<string>();
     @type("number") public startingSpeed!: number;
     @type("number") public startingRange!: number;
@@ -24,6 +25,6 @@ export class GalaxyState extends Schema {
     @type("number") public startingBattlePowerCost!: number;
     @type("string") public vpId!: string;
     @type("string") public size!: string;
-    @type("number") public visibilityLevel!: number;
     @type("number") public minimumDistanceBetweenStars!: number;
+    @type("number") public visibilityLevel!: number;
 }

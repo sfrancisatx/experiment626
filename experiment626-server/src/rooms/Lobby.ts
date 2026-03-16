@@ -57,7 +57,8 @@ export class LobbyRoom extends Room<LobbyState> {
     for (const room of rooms) {
       const summary = new GalaxySummary();
       summary.roomId = room.roomId || room.id || "";
-      summary.name = room.name || room.roomId || room.id || "Unnamed";
+      // Use metadata.galaxyName if available, otherwise fall back to roomId
+      summary.name = (room.metadata?.galaxyName) || room.roomId || room.id || "Unnamed";
       summary.status = room.locked ? "in-progress" : "open";
       summary.playerCount = room.clients || 0;
       this.state.galaxies.push(summary);

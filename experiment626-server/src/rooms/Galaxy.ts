@@ -24,6 +24,7 @@ interface createOptions {
     startingRangeCost: number;
     startingBattlePowerCost: number;
     id: string;
+    galaxyName?: string;
     size: string;
     visibilityLevel: number;
     minimumDistanceBetweenStars: number;
@@ -69,10 +70,14 @@ export class Galaxy extends Room<GalaxyState> {
         this.state.startingRangeCost = options.startingRangeCost || 1;
         this.state.startingBattlePowerCost = options.startingBattlePowerCost || 1;
         this.state.id = options.id;
+        this.state.galaxyName = options.galaxyName || "Unnamed Galaxy";
         this.state.size = options.size;
         this.state.visibilityLevel = options.visibilityLevel || 1;
         this.state.minimumDistanceBetweenStars = options.minimumDistanceBetweenStars || 5;
         this.nextUITime = this.state.clockTime + 2000;
+        
+        // Set room metadata so Lobby can display the galaxy name
+        this.setMetadata({ galaxyName: this.state.galaxyName });
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }

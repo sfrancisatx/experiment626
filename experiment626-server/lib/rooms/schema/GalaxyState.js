@@ -16,6 +16,7 @@ class GalaxyState extends schema_1.Schema {
         super(...arguments);
         this.clockTime = 0;
         this.id = "";
+        this.galaxyName = "";
         this.playerIdList = new schema_1.ArraySchema();
         this.startingSpeed = 0;
         this.startingRange = 0;
@@ -42,6 +43,10 @@ __decorate([
     (0, schema_1.type)("string"),
     __metadata("design:type", String)
 ], GalaxyState.prototype, "id", void 0);
+__decorate([
+    (0, schema_1.type)("string"),
+    __metadata("design:type", String)
+], GalaxyState.prototype, "galaxyName", void 0);
 __decorate([
     (0, schema_1.type)(["string"]),
     __metadata("design:type", schema_1.ArraySchema)

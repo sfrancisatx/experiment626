@@ -14,7 +14,12 @@
     "build": "npm run clean && tsc",
     "clean": "rimraf build",
     "test": "mocha -r tsx test/**_test.ts --exit --timeout 15000",
-    "generate-types": "node ./node_modules/@colyseus/schema/lib/codegen/cli.js src/rooms/schema/LobbyState.ts src/rooms/schema/GalaxyState.ts src/rooms/schema/StarState.ts src/rooms/schema/FleetState.ts src/rooms/schema/EmpireState.ts --ts --output ../experiment626-client/src/colyseusTypes --verbose"
+    "generate-types": "node ./node_modules/@colyseus/schema/lib/codegen/cli.js src/rooms/schema/LobbyState.ts src/rooms/schema/GalaxyState.ts src/rooms/schema/StarState.ts src/rooms/schema/FleetState.ts src/rooms/schema/EmpireState.ts --ts --output ../experiment626-client/src/colyseusTypes --verbose",
+    "cleanup:all": "tsx scripts/cleanup-db.ts all",
+    "cleanup:stale": "tsx scripts/cleanup-db.ts stale",
+    "cleanup:reset": "tsx scripts/cleanup-db.ts reset",
+    "cleanup:user": "tsx scripts/cleanup-db.ts user",
+    "cleanup:list": "tsx scripts/cleanup-db.ts list"
   },
   "author": "Holland Francis, Scott Francis",
   "license": "UNLICENSED",

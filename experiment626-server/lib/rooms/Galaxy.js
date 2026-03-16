@@ -24,6 +24,7 @@ const galaxySize = new Map([
 class Galaxy extends core_1.Room {
     constructor() {
         super(...arguments);
+        this.autoDispose = false; // Keep room alive even when all players leave
         this.fleetList = new Map(); //Fleet ID -> Fleet
         this.starList = new Map(); //Star ID -> Star
         this.empireList = new Map(); //Empire ID -> Empire
@@ -51,10 +52,13 @@ class Galaxy extends core_1.Room {
         this.state.startingRangeCost = options.startingRangeCost || 1;
         this.state.startingBattlePowerCost = options.startingBattlePowerCost || 1;
         this.state.id = options.id;
+        this.state.galaxyName = options.galaxyName || "Unnamed Galaxy";
         this.state.size = options.size;
         this.state.visibilityLevel = options.visibilityLevel || 1;
         this.state.minimumDistanceBetweenStars = options.minimumDistanceBetweenStars || 5;
         this.nextUITime = this.state.clockTime + 2000;
+        // Set room metadata so Lobby can display the galaxy name
+        this.setMetadata({ galaxyName: this.state.galaxyName });
         if (options.vpId) {
             this.state.vpId = options.vpId;
         }
