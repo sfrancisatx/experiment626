@@ -8,7 +8,7 @@ const os = require('os');
 
 module.exports = {
   apps : [{
-    name: "experiment626-app",
+    name: "experiment626",
     script: 'build/index.js',
     time: true,
     watch: false,
