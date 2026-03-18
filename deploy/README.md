@@ -215,7 +215,7 @@ Save this information:
   Project ID: experiment626-sandbox
   VM Name: experiment626-vm
   Zone: us-central1-a
-  External IP: 35.239.231.145
+  External IP: 34.55.96.153 (static)
 
   The key fingerprint is:
 SHA256:XOHGvDeG9djCKhCwSqDIkTE3nx0Oh35h2XHb/+pWLZw sfrancis@Scotts-MacBook-Pro.local

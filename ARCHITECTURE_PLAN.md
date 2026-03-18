@@ -468,7 +468,7 @@ The deploy script:
 
 #### Current Deployment
 
-- **Live URL**: `http://35.239.231.145`
+- **Live URL**: `http://34.55.96.153`
 - **VM**: `experiment626-vm` in `us-central1-a`
 - **Server**: Running on port 5111 via PM2
 - **Client**: Static files served by nginx from `/var/www/experiment626/`
