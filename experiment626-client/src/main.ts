@@ -126,9 +126,9 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         const user = await ensureAuthenticated();
         const idToken = await getIdToken();
         const roomId = window.location.hash.replace("#game-", "");
-        const empireName = prompt("Bla Bla Bla") || user.displayName || "Anonymous";
+        // const empireName = prompt("Bla Bla Bla") || user.displayName || "Anonymous";
         let pixiInitialized = false;
-        client.joinById<GalaxyState>(roomId, { empireName, idToken }).then(async (room: Room<GalaxyState>) => {
+        client.joinById<GalaxyState>(roomId, { idToken }).then(async (room: Room<GalaxyState>) => {
         console.log("✅ Joined room:", room.roomId);
         statusEl.textContent = `✅ Connected to room: ${room.roomId}`;
 

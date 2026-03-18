@@ -714,20 +714,20 @@ export class Galaxy extends Room<GalaxyState> {
             }
         }
     }
-    idGenerator(): string {
+    idGenerator(): string { //P
         this.idCounter++;
         return this.idCounter.toString();
     }
-    getFactoryCost(ownerId: string) {
+    getFactoryCost(ownerId: string) { //N
         return 1;
     }
-    getSpeedCost(ownerId: string) {
+    getSpeedCost(ownerId: string) { //N
         return 1;
     }
-    getRangeCost(ownerId: string) {
+    getRangeCost(ownerId: string) { //N
         return 1;
     }
-    getBattlePowerCost(ownerId: string) {
+    getBattlePowerCost(ownerId: string) { //N
         return 1;
     }
     getId(): string {
@@ -969,9 +969,9 @@ export class Galaxy extends Room<GalaxyState> {
         let data = {content1, content2, content3};
         this.clients.getById(clientId)?.send("debugInfo", data);
     }
-    async onJoin(client: Client, options: {empireName?: string, idToken?: string}) {
+    async onJoin(client: Client, options: {idToken?: string}) {
         let userId: string | null = null;
-        let displayName = options.empireName || "Anonymous Player";
+        let displayName = "Anonymous Player";
 
         // Verify Firebase token if provided
         if (options.idToken) {
@@ -1020,7 +1020,7 @@ export class Galaxy extends Room<GalaxyState> {
 
         // If no existing empire, create a new one
         if (!reattached) {
-            const empireName = options.empireName || displayName + "'s Empire";
+            const empireName = displayName + "'s Empire";
             empireId = this.idGenerator();
             this.empireList.set(empireId, new Empire(
                 new EmpireState(), 
