@@ -1013,6 +1013,9 @@ export class Galaxy extends Room<GalaxyState> {
                 // Update association to mark as active
                 await getOrCreateGameAssociation(userId, this.roomId, empireId);
                 
+                this.genPlayerStarView(client.sessionId);
+                this.genPlayerFleetView(client.sessionId);
+
                 console.log(`User ${userId} re-attached to empire ${empireId} in galaxy ${this.roomId}`);
                 reattached = true;
             }
