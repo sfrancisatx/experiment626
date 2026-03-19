@@ -25,6 +25,9 @@ echo "Installing server dependencies..."
 cd $SERVER_DIR
 npm ci
 
+echo "Generating Prisma Client..."
+npx prisma generate
+
 echo "Building server..."
 npm run build
 
