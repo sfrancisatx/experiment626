@@ -972,6 +972,7 @@ export class Galaxy extends Room<GalaxyState> {
     async onJoin(client: Client, options: {idToken?: string}) {
         let userId: string | null = null;
         let displayName = "Anonymous Player";
+        console.log("New Player Joining Galaxy...");
 
         // Verify Firebase token if provided
         if (options.idToken) {
