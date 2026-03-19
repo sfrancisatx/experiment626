@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+umask 002
+
 
 echo "=== Experiment626 Quick Update ==="
 
