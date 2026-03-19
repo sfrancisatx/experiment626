@@ -25,8 +25,9 @@ fi
 if git diff --name-only HEAD~1 HEAD | grep -q "^experiment626-server/"; then
     echo "Server code changed, rebuilding..."
     cd $SERVER_DIR
+    npx prisma generate
     npm run build
-    pm2 restart experiment626
+    pm2 restart experiment626 || pm2 start ~/ecosystem.config.js
 fi
 
 # Only rebuild client if client code changed
