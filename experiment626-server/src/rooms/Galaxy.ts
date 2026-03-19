@@ -596,7 +596,7 @@ export class Galaxy extends Room<GalaxyState> {
             console.error(`\nEmpire of Fleet not found\nOwner ID: ${owner}\n Location: Galaxy.fleetEndTimeCalculator()`);
             return clockTime + distance;
         }
-        return clockTime + distance/this.state.startingRange * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10);
+        return clockTime + distance/gridUnitsPerLightYear * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10);
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, clientId: string) {
         var empireId = this.playerToEmpireList.get(clientId);
