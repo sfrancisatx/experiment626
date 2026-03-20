@@ -2,6 +2,14 @@
 
 This directory contains scripts and configuration files for deploying Experiment626 to Google Cloud Platform (GCP).
 
+## Deployment Scripts
+
+- **`setup-pm2-service.sh`** - One-time setup to configure PM2 as a systemd service
+- **`cleanup-pm2.sh`** - Clean up existing PM2 instances before setup
+- **`deploy.sh`** - Full deployment (dependencies, build, restart)
+- **`update.sh`** - Quick update (only rebuilds what changed)
+- **`sudoers-pm2`** - Sudoers configuration for passwordless PM2 access
+
 ## Prerequisites
 
 1. **Install Google Cloud SDK**
@@ -106,14 +114,22 @@ sudo nginx -t  # Test configuration
 sudo systemctl restart nginx
 ```
 
-### Step 5: Enable PM2 Auto-Start
+### Step 5: Set Up PM2 System Service
+
+**Important:** PM2 should be configured as a systemd service for shared access between developers.
 
 ```bash
 # On the VM
-pm2 startup
-# Follow the instructions it prints (copy/paste the command)
-pm2 save
+cd /opt/experiment626/deploy
+
+# First, clean up any existing PM2 instances
+sudo ./cleanup-pm2.sh
+
+# Then set up PM2 as a system service
+sudo ./setup-pm2-service.sh
 ```
+
+This configures PM2 to run as a systemd service that both developers can control using `sudo pm2` commands.
 
 ### Step 6: Test Your Deployment
 
@@ -125,6 +141,21 @@ Test the WebSocket connection:
 ```bash
 curl http://YOUR_VM_IP/hello_world
 ```
+
+## PM2 System Service Setup
+
+**First-time setup only:** Configure PM2 as a systemd service for shared access:
+
+```bash
+# SSH into the VM
+gcloud compute ssh experiment626-vm --zone=us-central1-a
+
+# Run the PM2 setup script (one-time only)
+cd /opt/experiment626/deploy
+sudo ./setup-pm2-service.sh
+```
+
+This configures PM2 to run as a system service that both developers can control.
 
 ## Updating Your Deployment
 
@@ -141,19 +172,26 @@ cd ~
 
 ## Monitoring
 
+**Note:** All PM2 commands now require `sudo` since PM2 runs as a system service.
+
 View server logs:
 ```bash
-pm2 logs experiment626
+sudo pm2 logs experiment626
 ```
 
 Check server status:
 ```bash
-pm2 status
+sudo pm2 status
 ```
 
 Restart server:
 ```bash
-pm2 restart experiment626
+sudo pm2 restart experiment626
+```
+
+Monitor in real-time:
+```bash
+sudo pm2 monit
 ```
 
 ## Client Deployment (Static Files)
@@ -174,7 +212,7 @@ With the e2-micro instance (free tier):
 ### Server won't start
 ```bash
 # Check logs
-pm2 logs experiment626
+sudo pm2 logs experiment626
 
 # Check if port 5111 is in use
 sudo netstat -tulpn | grep 5111

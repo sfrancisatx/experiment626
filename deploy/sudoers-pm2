@@ -1,0 +1,12 @@
+# PM2 Passwordless Access Configuration
+# This file should be copied to /etc/sudoers.d/pm2-access on the VM
+# 
+# Installation:
+#   sudo cp sudoers-pm2 /etc/sudoers.d/pm2-access
+#   sudo chmod 0440 /etc/sudoers.d/pm2-access
+#   sudo visudo -c -f /etc/sudoers.d/pm2-access
+#
+# This allows sfrancis and hollandfrancis to run PM2 commands without password
+
+sfrancis ALL=(ALL) NOPASSWD: /usr/bin/pm2
+hollandfrancis ALL=(ALL) NOPASSWD: /usr/bin/pm2

@@ -29,7 +29,7 @@ if git diff --name-only HEAD~1 HEAD | grep -q "^experiment626-server/"; then
     cd $SERVER_DIR
     npx prisma generate
     npm run build
-    pm2 restart experiment626 || pm2 start ~/ecosystem.config.js
+    sudo pm2 restart experiment626 || sudo pm2 start $SERVER_DIR/ecosystem.config.js
 fi
 
 # Only rebuild client if client code changed
@@ -43,4 +43,4 @@ if git diff --name-only HEAD~1 HEAD | grep -q "^experiment626-client/"; then
 fi
 
 echo "=== Update complete! ==="
-pm2 status
+sudo pm2 status

@@ -33,25 +33,25 @@ npx prisma generate
 echo "Building server..."
 npm run build
 
-# Copy ecosystem config
+# Copy ecosystem config to a location accessible by root
 echo "Copying PM2 ecosystem config..."
-cp ~/ecosystem.config.js $SERVER_DIR/
+sudo cp ~/ecosystem.config.js $SERVER_DIR/
 
 # Stop existing PM2 process if running
 echo "Stopping existing server..."
-pm2 stop experiment626 || true
-pm2 delete experiment626 || true
+sudo pm2 stop experiment626 || true
+sudo pm2 delete experiment626 || true
 
 # Start server with PM2 using ecosystem file
 echo "Starting server with PM2..."
 cd $SERVER_DIR
-pm2 start ecosystem.config.js
+sudo pm2 start ecosystem.config.js
 
 # Save PM2 process list
-pm2 save
+sudo pm2 save
 
 # Show status
-pm2 status
+sudo pm2 status
 
 # Build and deploy client
 echo "Building client..."
@@ -69,4 +69,4 @@ echo "=== Deployment complete! ==="
 echo "Server is running on port 5111"
 echo "Client is deployed to $WEB_ROOT"
 echo "Access the app at: http://YOUR_VM_IP"
-echo "Check logs with: pm2 logs experiment626"
+echo "Check logs with: sudo pm2 logs experiment626"
