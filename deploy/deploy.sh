@@ -33,9 +33,9 @@ npx prisma generate
 echo "Building server..."
 npm run build
 
-# Copy ecosystem config to a location accessible by root
+# Copy ecosystem config from repository
 echo "Copying PM2 ecosystem config..."
-sudo cp ~/ecosystem.config.js $SERVER_DIR/
+sudo cp $APP_DIR/deploy/ecosystem.config.js $SERVER_DIR/
 
 # Stop existing PM2 process if running
 echo "Stopping existing server..."

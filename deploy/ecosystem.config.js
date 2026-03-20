@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'experiment626',
-    script: 'lib/index.js',
+    script: 'build/index.js',
     cwd: '/opt/experiment626/experiment626-server',
     env: {
       NODE_ENV: 'production',
