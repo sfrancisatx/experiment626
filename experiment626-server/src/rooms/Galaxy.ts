@@ -636,7 +636,8 @@ export class Galaxy extends Room<GalaxyState> {
     fleetArrive(fleet: Fleet) {
         var star = this.starList.get(fleet.state.destinationStarId);
         if (!star) {
-            console.error(`\nStar of Fleet Destination not found\nDestination Star ID: ${fleet.state.destinationStarId}\nStar List: ${this.starList}\nLocation: Galaxy.fleetArrive(), 1`);
+            console.error(`\nStar of Fleet Destination not found - destroying orphaned fleet\nFleet ID: ${fleet.state.id}\nDestination Star ID: ${fleet.state.destinationStarId}\nLocation: Galaxy.fleetArrive(), 1`);
+            this.destroyFleet(fleet.getId());
             return;
         }
         if (star.state.owner === fleet.state.owner) {
