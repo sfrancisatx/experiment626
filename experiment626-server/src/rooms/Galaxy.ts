@@ -596,6 +596,7 @@ export class Galaxy extends Room<GalaxyState> {
             console.error(`\nEmpire of Fleet not found\nOwner ID: ${owner}\n Location: Galaxy.fleetEndTimeCalculator()`);
             return clockTime + distance;
         }
+        console.log("Fleet End Time Calculator:", clockTime + distance/gridUnitsPerLightYear * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10)+ "\nDist: " + distance + "\nSpeed: " + fleetEmpire.state.speed);
         return clockTime + distance/gridUnitsPerLightYear * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10);
     }
     createFleet(sourceStarId: string, destinationStarId: string, ships: number, clientId: string) {
@@ -972,6 +973,7 @@ export class Galaxy extends Room<GalaxyState> {
     async onJoin(client: Client, options: {idToken?: string}) {
         let userId: string | null = null;
         let displayName = "Anonymous Player";
+        console.log("New Player Joining Galaxy...");
 
         // Verify Firebase token if provided
         if (options.idToken) {
