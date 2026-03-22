@@ -226,7 +226,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             }
             if (type === "playerViewState") {
                 playerViewState = message;
-                console.log("Player view state received:", message);
+                //console.log("Player view state received:", message);
                 
                 // Check if both starList and fleetList are empty (uninitialized game)
                 const isGameUninitialized = playerViewState && playerViewState.starList.length === 0 && playerViewState.fleetList.length === 0;
