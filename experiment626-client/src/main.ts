@@ -227,8 +227,12 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             if (type === "playerViewState") {
                 playerViewState = message;
                 console.log("Player view state received:", message);
-                // Transition to game UI only after start button was pressed
-                if (!gameInitialized && startButtonPressed) {
+                
+                // Check if both starList and fleetList are empty (uninitialized game)
+                const isGameUninitialized = playerViewState && playerViewState.starList.length === 0 && playerViewState.fleetList.length === 0;
+                
+                // Transition to game UI only after start button was pressed AND game is initialized
+                if (!gameInitialized && startButtonPressed && !isGameUninitialized) {
                     gameInitialized = true;
                     hideWaitingMessage();
                     showGameUI();
@@ -257,13 +261,21 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         // Check if game is already initialized (for rejoining)
         setTimeout(() => {
             if (playerViewState && !gameInitialized) {
-                // Game already exists, transition directly to game UI
-                gameInitialized = true;
-                hideWaitingMessage();
-                hideStartButton();
-                showGameUI();
+                // Check if both starList and fleetList are empty (uninitialized game)
+                const isGameUninitialized = playerViewState.starList.length === 0 && playerViewState.fleetList.length === 0;
+                
+                if (!isGameUninitialized) {
+                    // Game already exists, transition directly to game UI
+                    gameInitialized = true;
+                    hideWaitingMessage();
+                    hideStartButton();
+                    showGameUI();
+                } else {
+                    // Game not initialized yet, show start button
+                    showStartButton();
+                }
             } else if (!playerViewState) {
-                // Game not initialized yet, show start button
+                // No playerViewState yet, show start button
                 showStartButton();
             }
         }, 2000);
