@@ -10,6 +10,7 @@ import { ensureAuthenticated, getIdToken, completeEmailSignIn } from "./firebase
 const statusEl = document.getElementById("status")!;
 const statusStartupEl = document.getElementById("status-startup")!;
 const waitingMessageEl = document.getElementById("waiting-message")!;
+const startGameBtn = document.getElementById("startGameBtn") as HTMLButtonElement;
 const startupUI = document.getElementById("startup-ui")!;
 const gameUI = document.getElementById("game-ui")!;
 const messageInput = document.getElementById("messageInput") as HTMLInputElement;
@@ -66,6 +67,14 @@ function showGameUI() {
 
 function updateStartupStatus(message: string) {
     statusStartupEl.textContent = message;
+}
+
+function showStartButton() {
+    startGameBtn.style.display = "block";
+}
+
+function hideStartButton() {
+    startGameBtn.style.display = "none";
 }
 
 function showWaitingMessage() {
@@ -165,16 +174,21 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         // Check if game is already initialized
         let gameInitialized = false;
         let pixiInitialized = false;
+        let startButtonPressed = false;
         
-        // Show waiting message if no playerViewState yet
-        const checkGameState = () => {
-            if (!gameInitialized && !playerViewState) {
+        // Show start button after connection
+        showStartButton();
+        
+        // Add button click handler
+        startGameBtn.addEventListener("click", () => {
+            if (!startButtonPressed) {
+                startButtonPressed = true;
+                hideStartButton();
                 showWaitingMessage();
+                // Send init command
+                room.send("init", { generationMethod: "default" });
             }
-        };
-        
-        // Initial check after a short delay
-        setTimeout(checkGameState, 1000);
+        });
 
         const pixiRoot = document.getElementById("pixi-root");
         if (!pixiRoot) return;
@@ -208,9 +222,9 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             }
             if (type === "playerViewState") {
                 playerViewState = message;
-                // Transition to game UI on first playerViewState
                 console.log("Player view state received:", message);
-                if (!gameInitialized) {
+                // Transition to game UI only after start button was pressed
+                if (!gameInitialized && startButtonPressed) {
                     gameInitialized = true;
                     hideWaitingMessage();
                     showGameUI();
@@ -228,17 +242,23 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             // Reset to startup UI when leaving room
             showStartupUI();
             gameInitialized = false;
+            startButtonPressed = false;
             playerViewState = null;
+            hideStartButton();
+            hideWaitingMessage();
         });
 
         // Check if game is already initialized (for rejoining)
         setTimeout(() => {
             if (playerViewState && !gameInitialized) {
+                // Game already exists, transition directly to game UI
                 gameInitialized = true;
                 hideWaitingMessage();
+                hideStartButton();
                 showGameUI();
             } else if (!playerViewState) {
-                showWaitingMessage();
+                // Game not initialized yet, show start button
+                showStartButton();
             }
         }, 2000);
 
