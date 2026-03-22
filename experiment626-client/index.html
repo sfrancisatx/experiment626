@@ -22,60 +22,77 @@
     opacity: 0;
     "></div>
     <div id="app">
-      <div id="pixi-root" style="overflow: hidden; padding: 0; z-index: 0; inset: 0; position: fixed;">
-        <div id="pixi-ui-root" style="z-index: 10; inset: 0; position: fixed; pointer-events: none">
-          <div style="background: rgba(255, 255, 255, 0.85); padding: 10px; border-radius: 5px; width: fit-content; box-shadow: 0 2px 8px rgba(255,255,255,0.5); margin: 10px;">
-            <div id="status">🔌 Connecting...</div>
-            <div id="commandPanel" style="margin-top: 1rem; pointer-events: auto;">
-              <label for="commandSelect">Choose command:</label>
-              <select id="commandSelect">
-                <option value="">--Select a command--</option>
-              </select>
-            
-              <div id="commandInputs" style="margin-top: 0.5rem; pointer-events: auto;"></div>
-              <button id="sendCommandButton">Send Command</button>
-            </div>
-            <div style="margin-top: 1rem; pointer-events: auto;">
-              <input id="messageInput" type="text" placeholder="Type a message..." />
-              <button id="sendButton">Send</button>
-            </div>
+      <!-- Startup UI State -->
+      <div id="startup-ui" style="overflow: hidden; padding: 0; z-index: 0; inset: 0; position: fixed; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div style="text-align: center; color: white;">
+          <h1 style="font-size: 3rem; margin-bottom: 1rem; font-family: sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">Nova</h1>
+          <p style="font-size: 1.2rem; margin-bottom: 2rem; font-family: sans-serif; opacity: 0.9;">Galactic Strategy Game</p>
+          <div id="status-startup" style="background: rgba(255, 255, 255, 0.1); padding: 1rem 2rem; border-radius: 10px; backdrop-filter: blur(10px); margin-bottom: 2rem;">
+            🔌 Connecting...
           </div>
+          <div id="waiting-message" style="background: rgba(255, 255, 255, 0.1); padding: 1rem 2rem; border-radius: 10px; backdrop-filter: blur(10px); display: none;">
+            Waiting for game to be initialized...
+          </div>
+        </div>
+      </div>
 
-          <!-- <ul id="messages" style="margin-top: 1rem; list-style: none; padding-left: 0;"></ul> -->
+      <!-- Game UI State -->
+      <div id="game-ui" style="overflow: hidden; padding: 0; z-index: 0; inset: 0; position: fixed; display: none;">
+        <div id="pixi-root" style="overflow: hidden; padding: 0; z-index: 0; inset: 0; position: fixed;">
+          <div id="pixi-ui-root" style="z-index: 10; inset: 0; position: fixed; pointer-events: none">
+            <div style="background: rgba(255, 255, 255, 0.85); padding: 10px; border-radius: 5px; width: fit-content; box-shadow: 0 2px 8px rgba(255,255,255,0.5); margin: 10px;">
+              <div id="status">🔌 Connecting...</div>
+              <div id="commandPanel" style="margin-top: 1rem; pointer-events: auto;">
+                <label for="commandSelect">Choose command:</label>
+                <select id="commandSelect">
+                  <option value="">--Select a command--</option>
+                </select>
+              
+                <div id="commandInputs" style="margin-top: 0.5rem; pointer-events: auto;"></div>
+                <button id="sendCommandButton">Send Command</button>
+              </div>
+              <div style="margin-top: 1rem; pointer-events: auto;">
+                <input id="messageInput" type="text" placeholder="Type a message..." />
+                <button id="sendButton">Send</button>
+              </div>
+            </div>
 
-          <!-- 🗺️ Emoji map and 🧪 Debug panel side-by-side -->
-          <div style="display: flex; margin-top: 1rem; gap: 0.5rem;;">
-            <!-- Debug panel 1 -->
-            <div
-              id="debugPanel1"
-              style="display: none; width: 140px; height: 800px; overflow: auto; border: 1px solid #ccc;"
-            >
-              <pre
-                id="debugDisplay1"
-                style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
-              ></pre>
-            </div>
-          
-            <!-- Debug panel 2 -->
-            <div
-              id="debugPanel2"
-              style="display: none; width: 200px; height: 800px; overflow: auto; border: 1px solid #ccc;"
-            >
-              <pre
-                id="debugDisplay2"
-                style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
-              ></pre>
-            </div>
-          
-            <!-- Debug panel 3 -->
-            <div
-              id="debugPanel3"
-              style="display: none; width: 170px; height: 800px; overflow: auto; border: 1px solid #ccc;"
-            >
-              <pre
-                id="debugDisplay3"
-                style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
-              ></pre>
+            <!-- <ul id="messages" style="margin-top: 1rem; list-style: none; padding-left: 0;"></ul> -->
+
+            <!-- 🗺️ Emoji map and 🧪 Debug panel side-by-side -->
+            <div style="display: flex; margin-top: 1rem; gap: 0.5rem;;">
+              <!-- Debug panel 1 -->
+              <div
+                id="debugPanel1"
+                style="display: none; width: 140px; height: 800px; overflow: auto; border: 1px solid #ccc;"
+              >
+                <pre
+                  id="debugDisplay1"
+                  style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
+                ></pre>
+              </div>
+            
+              <!-- Debug panel 2 -->
+              <div
+                id="debugPanel2"
+                style="display: none; width: 200px; height: 800px; overflow: auto; border: 1px solid #ccc;"
+              >
+                <pre
+                  id="debugDisplay2"
+                  style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
+                ></pre>
+              </div>
+            
+              <!-- Debug panel 3 -->
+              <div
+                id="debugPanel3"
+                style="display: none; width: 170px; height: 800px; overflow: auto; border: 1px solid #ccc;"
+              >
+                <pre
+                  id="debugDisplay3"
+                  style="font-size: 12px; line-height: 1.2; font-family: monospace; white-space: pre-wrap; margin: 0; padding: 0.5rem;"
+                ></pre>
+              </div>
             </div>
           </div>
         </div>

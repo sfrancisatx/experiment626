@@ -8,6 +8,10 @@ import { ensureAuthenticated, getIdToken, completeEmailSignIn } from "./firebase
 
 // ===== HTML ELEMENTS =====
 const statusEl = document.getElementById("status")!;
+const statusStartupEl = document.getElementById("status-startup")!;
+const waitingMessageEl = document.getElementById("waiting-message")!;
+const startupUI = document.getElementById("startup-ui")!;
+const gameUI = document.getElementById("game-ui")!;
 const messageInput = document.getElementById("messageInput") as HTMLInputElement;
 const sendButton = document.getElementById("sendButton")!;
 const commandSelect = document.getElementById("commandSelect") as HTMLSelectElement;
@@ -48,6 +52,29 @@ const galaxySize = new Map<string, number>([
 ]);
 
 type PIXIAppPlus = PIXI.Application & { tooltipLayer: PIXI.Container, tooltip: PIXI.Text };
+
+// ===== UI STATE MANAGEMENT =====
+function showStartupUI() {
+    startupUI.style.display = "flex";
+    gameUI.style.display = "none";
+}
+
+function showGameUI() {
+    startupUI.style.display = "none";
+    gameUI.style.display = "block";
+}
+
+function updateStartupStatus(message: string) {
+    statusStartupEl.textContent = message;
+}
+
+function showWaitingMessage() {
+    waitingMessageEl.style.display = "block";
+}
+
+function hideWaitingMessage() {
+    waitingMessageEl.style.display = "none";
+}
 
 // ===== CAMERA STATE =====
 let zoom = 1;
@@ -104,6 +131,9 @@ for (const command of commands) {
     commandSelect.appendChild(option);
 }
 // ===== MAIN =====
+// Initialize with startup UI
+showStartupUI();
+
 // Handle email sign-in callback first
 (async () => {
     if (window.location.hash === "#email-signin" || window.location.href.includes("apiKey=")) {
@@ -130,19 +160,28 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         let pixiInitialized = false;
         client.joinById<GalaxyState>(roomId, { idToken }).then(async (room: Room<GalaxyState>) => {
         console.log("✅ Joined room:", room.roomId);
+        updateStartupStatus(`✅ Connected to room: ${room.roomId}`);
         statusEl.textContent = `✅ Connected to room: ${room.roomId}`;
 
-        // const mapDisplay = document.getElementById("mapDisplay");
-        // if (!mapDisplay) return;
+        // Check if game is already initialized
+        let gameInitialized = false;
+        let pixiInitialized = false;
+        
+        // Show waiting message if no playerViewState yet
+        const checkGameState = () => {
+            if (!gameInitialized && !playerViewState) {
+                showWaitingMessage();
+            }
+        };
+        
+        // Initial check after a short delay
+        setTimeout(checkGameState, 1000);
+
         const pixiRoot = document.getElementById("pixi-root");
         if (!pixiRoot) return;
 
-        // console.log("Client side request galaxySize: " + room.state.size);
-        // galaxyUnits = galaxySize.get(room.state.size) || 100;
-
         room.onStateChange(async (state: GalaxyState) => {
             galaxyUnits = await waitForGalaxySize(room);
-            // console.log("Client side request galaxySize: " + room.state.size + " --> " + galaxyUnits);
             galaxyState = state;
         
             if (!pixiInitialized) {
@@ -159,7 +198,6 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
                 renderLoop();
             }
         });
-        
 
         room.onMessage("*", (type, message) => {
             if (type != "debugInfo" && type != "playerViewState") {
@@ -171,6 +209,12 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             }
             if (type === "playerViewState") {
                 playerViewState = message;
+                // Transition to game UI on first playerViewState
+                if (!gameInitialized) {
+                    gameInitialized = true;
+                    hideWaitingMessage();
+                    showGameUI();
+                }
             }
             if (type === "debugInfo") {
                 updateDebugUI(message.content1, message.content2, message.content3);
@@ -181,7 +225,22 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         room.onLeave(() => {
             console.log("❌ Left room");
             statusEl.textContent = "❌ Left room.";
+            // Reset to startup UI when leaving room
+            showStartupUI();
+            gameInitialized = false;
+            playerViewState = null;
         });
+
+        // Check if game is already initialized (for rejoining)
+        setTimeout(() => {
+            if (playerViewState && !gameInitialized) {
+                gameInitialized = true;
+                hideWaitingMessage();
+                showGameUI();
+            } else if (!playerViewState) {
+                showWaitingMessage();
+            }
+        }, 2000);
 
         // ====== COMMAND SELECTOR ======
         commandSelect.addEventListener("change", () => {
