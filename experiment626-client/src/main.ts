@@ -209,6 +209,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             if (type === "playerViewState") {
                 playerViewState = message;
                 // Transition to game UI on first playerViewState
+                console.log("Player view state received:", message);
                 if (!gameInitialized) {
                     gameInitialized = true;
                     hideWaitingMessage();
