@@ -64,12 +64,9 @@ function showStartupUI() {
 
 function showGameUI() {
     startupUI.style.display = "none";
-    // Small delay to ensure startup UI is hidden before dropping the loading curtain
-    setTimeout(() => {
-        const loadingUI = document.getElementById("loading-ui");
-        if (loadingUI) loadingUI.style.display = "none";
-        gameUI.style.display = "block";
-    }, 10);
+    const loadingUI = document.getElementById("loading-ui");
+    if (loadingUI) loadingUI.style.display = "none";
+    gameUI.style.display = "block";
 }
 
 function updateStartupStatus(message: string) {
