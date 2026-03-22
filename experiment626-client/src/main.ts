@@ -63,9 +63,9 @@ function showStartupUI() {
 }
 
 function showGameUI() {
+    startupUI.style.display = "none";
     const loadingUI = document.getElementById("loading-ui");
     if (loadingUI) loadingUI.style.display = "none";
-    startupUI.style.display = "none";
     gameUI.style.display = "block";
 }
 
