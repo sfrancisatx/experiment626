@@ -56,11 +56,15 @@ type PIXIAppPlus = PIXI.Application & { tooltipLayer: PIXI.Container, tooltip: P
 
 // ===== UI STATE MANAGEMENT =====
 function showStartupUI() {
+    const loadingUI = document.getElementById("loading-ui");
+    if (loadingUI) loadingUI.style.display = "none";
     startupUI.style.display = "flex";
     gameUI.style.display = "none";
 }
 
 function showGameUI() {
+    const loadingUI = document.getElementById("loading-ui");
+    if (loadingUI) loadingUI.style.display = "none";
     startupUI.style.display = "none";
     gameUI.style.display = "block";
 }
@@ -240,6 +244,8 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             console.log("❌ Left room");
             statusEl.textContent = "❌ Left room.";
             // Reset to startup UI when leaving room
+            const loadingUI = document.getElementById("loading-ui");
+            if (loadingUI) loadingUI.style.display = "flex";
             showStartupUI();
             gameInitialized = false;
             startButtonPressed = false;
