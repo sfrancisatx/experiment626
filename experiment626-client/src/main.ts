@@ -161,8 +161,6 @@ for (const command of commands) {
 if (!window.location.hash || window.location.hash === "#lobby" || window.location.hash === "#email-signin") {
     showLandingPage(client);
 } else if (window.location.hash.startsWith("#game-")) {
-    // Initialize with startup UI for game pages
-    showStartupUI();
     // Authenticate and join the game room
     (async () => {
         const user = await ensureAuthenticated();
