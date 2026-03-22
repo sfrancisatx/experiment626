@@ -594,7 +594,7 @@ export class Galaxy extends Room<GalaxyState> {
         var fleetEmpire = this.empireList.get(owner);
         if (!fleetEmpire) {
             console.error(`\nEmpire of Fleet not found\nOwner ID: ${owner}\n Location: Galaxy.fleetEndTimeCalculator()`);
-            return clockTime + distance;
+            return -1;
         }
         //console.log("Fleet End Time Calculator:", clockTime + distance/gridUnitsPerLightYear * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10)+ "\nDist: " + distance + "\nSpeed: " + fleetEmpire.state.speed);
         return clockTime + distance/gridUnitsPerLightYear * (hoursPerTurn * 60 * 60 * 1000) / ((fleetEmpire.state.speed + 9) / 10);
@@ -719,18 +719,6 @@ export class Galaxy extends Room<GalaxyState> {
     idGenerator(): string { //P
         this.idCounter++;
         return this.idCounter.toString();
-    }
-    getFactoryCost(ownerId: string) { //N
-        return 1;
-    }
-    getSpeedCost(ownerId: string) { //N
-        return 1;
-    }
-    getRangeCost(ownerId: string) { //N
-        return 1;
-    }
-    getBattlePowerCost(ownerId: string) { //N
-        return 1;
     }
     getId(): string {
         return this.state.id;
