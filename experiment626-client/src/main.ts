@@ -231,11 +231,26 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
                 // Check if both starList and fleetList are empty (uninitialized game)
                 const isGameUninitialized = playerViewState && playerViewState.starList.length === 0 && playerViewState.fleetList.length === 0;
                 
-                // Transition to game UI only after start button was pressed AND game is initialized
-                if (!gameInitialized && startButtonPressed && !isGameUninitialized) {
-                    gameInitialized = true;
-                    hideWaitingMessage();
-                    showGameUI();
+                // Handle initial UI decision (first time receiving playerViewState)
+                if (!gameInitialized) {
+                    if (isGameUninitialized) {
+                        // Game not initialized, show startup UI with button
+                        showStartupUI();
+                        showStartButton();
+                    } else {
+                        // Game already exists, go directly to game UI
+                        gameInitialized = true;
+                        hideStartButton();
+                        hideWaitingMessage();
+                        showGameUI();
+                    }
+                } else {
+                    // Subsequent playerViewState updates - only transition if button was pressed
+                    if (startButtonPressed && !isGameUninitialized) {
+                        gameInitialized = true;
+                        hideWaitingMessage();
+                        showGameUI();
+                    }
                 }
             }
             if (type === "debugInfo") {
@@ -258,27 +273,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             hideWaitingMessage();
         });
 
-        // Check if game is already initialized (for rejoining)
-        setTimeout(() => {
-            if (playerViewState && !gameInitialized) {
-                // Check if both starList and fleetList are empty (uninitialized game)
-                const isGameUninitialized = playerViewState.starList.length === 0 && playerViewState.fleetList.length === 0;
-                
-                if (!isGameUninitialized) {
-                    // Game already exists, transition directly to game UI
-                    gameInitialized = true;
-                    hideWaitingMessage();
-                    hideStartButton();
-                    showGameUI();
-                } else {
-                    // Game not initialized yet, show start button
-                    showStartButton();
-                }
-            } else if (!playerViewState) {
-                // No playerViewState yet, show start button
-                showStartButton();
-            }
-        }, 2000);
+        // Check if game is already initialized (for rejoining) - REMOVED, handled in message handler now
 
         // ====== COMMAND SELECTOR ======
         commandSelect.addEventListener("change", () => {
