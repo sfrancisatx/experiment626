@@ -28,6 +28,7 @@ export async function showLandingPage(client: Client) {
   landing.style.background = "#f8f9fa";
   landing.style.borderRadius = "8px";
   landing.style.boxShadow = "0 2px 8px rgba(0,0,0,0.07)";
+  landing.style.overflow = "auto";
 
   // Title
   const title = document.createElement("h2");
