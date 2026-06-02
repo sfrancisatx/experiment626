@@ -44,6 +44,10 @@ let tooltipXOffset = 15;
 let tooltipYOffset = 0;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
+// ===== GAME INITIALIZATION PLAYERVIEWSTATE COUNTER =====
+let playerViewStateCount = 0;
+
+
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
     ["itty", 100],
@@ -231,27 +235,30 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
                 
                 // Handle initial UI decision (first time receiving playerViewState)
                 if (!gameInitialized) {
-                    console.log("PlayerViewState while game not initialized:", playerViewState);
-                    if (isGameUninitialized) {
-                        // Game not initialized, show startup UI with button
-                        showStartupUI();
-                        showStartButton();
-                        console.log("Game not initialized, showing startup UI");
+                    if (playerViewStateCount > 0) {
+                        console.log("PlayerViewState while game not initialized:", playerViewState);
+                        if (isGameUninitialized) {
+                            // Game not initialized, show startup UI with button
+                            showStartupUI();
+                            showStartButton();
+                            console.log("Game not initialized, showing startup UI");
+                        } else {
+                            // Game already exists, go directly to game UI
+                            gameInitialized = true;
+                            hideStartButton();
+                            hideWaitingMessage();
+                            showGameUI();
+                            console.log("Game already exists, showing game UI");
+                        }
                     } else {
-                        // Game already exists, go directly to game UI
-                        gameInitialized = true;
-                        hideStartButton();
-                        hideWaitingMessage();
-                        showGameUI();
-                        console.log("Game already exists, showing game UI");
+                        // Subsequent playerViewState updates - only transition if button was pressed
+                        if (startButtonPressed && !isGameUninitialized) {
+                            gameInitialized = true;
+                            hideWaitingMessage();
+                            showGameUI();
+                        }
                     }
-                } else {
-                    // Subsequent playerViewState updates - only transition if button was pressed
-                    if (startButtonPressed && !isGameUninitialized) {
-                        gameInitialized = true;
-                        hideWaitingMessage();
-                        showGameUI();
-                    }
+                    playerViewStateCount++;
                 }
             }
             if (type === "debugInfo") {
