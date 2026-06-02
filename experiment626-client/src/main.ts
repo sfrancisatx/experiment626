@@ -235,12 +235,14 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
                         // Game not initialized, show startup UI with button
                         showStartupUI();
                         showStartButton();
+                        console.log("Game not initialized, showing startup UI");
                     } else {
                         // Game already exists, go directly to game UI
                         gameInitialized = true;
                         hideStartButton();
                         hideWaitingMessage();
                         showGameUI();
+                        console.log("Game already exists, showing game UI");
                     }
                 } else {
                     // Subsequent playerViewState updates - only transition if button was pressed
