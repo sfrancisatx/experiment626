@@ -179,7 +179,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         let startButtonPressed = false;
         
         // Show start button after connection
-        showStartButton();
+        // showStartButton();
         
         // Add button click handler
         startGameBtn.addEventListener("click", () => {
