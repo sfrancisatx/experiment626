@@ -236,7 +236,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
                 // Handle initial UI decision (first time receiving playerViewState)
                 if (!gameInitialized) {
                     console.log("PlayerViewState while game not initialized:", playerViewState);
-                    if (playerViewStateCount > 0) {
+                    if (playerViewStateCount > 5) {
                         if (isGameUninitialized) {
                             // Game not initialized, show startup UI with button
                             showStartupUI();
