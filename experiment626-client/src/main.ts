@@ -26,6 +26,110 @@ const debugPanel3 = document.getElementById("debugPanel3")!;
 const debugText3 = document.getElementById("debugDisplay3")!;
 let showDebug = false;
 const tooltipEl = document.getElementById("tooltip") as HTMLDivElement;
+const propertyModulesContainer = document.getElementById("property-modules")!;
+
+// ===== PROPERTY MODULES =====
+interface PropertyModule {
+    title: string;
+    value: number;
+}
+
+const propertyModules: PropertyModule[] = [
+    { title: "Galaxy Size", value: 50 },
+    { title: "Star Density", value: 50 },
+    { title: "Resource Abundance", value: 50 },
+    { title: "Initial Vision", value: 50 },
+    { title: "Difficulty", value: 50 },
+    { title: "Game Speed", value: 50 }
+];
+
+function createPropertyModule(module: PropertyModule, index: number): HTMLElement {
+    const moduleDiv = document.createElement("div");
+    moduleDiv.className = "property-module";
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "property-module-title";
+    titleEl.textContent = module.title;
+
+    const valueEl = document.createElement("div");
+    valueEl.className = "property-module-value";
+    valueEl.textContent = module.value.toString();
+    valueEl.contentEditable = "true";
+    valueEl.setAttribute("data-index", index.toString());
+
+    const sliderEl = document.createElement("input");
+    sliderEl.type = "range";
+    sliderEl.className = "property-module-slider";
+    sliderEl.min = "1";
+    sliderEl.max = "100";
+    sliderEl.value = module.value.toString();
+    sliderEl.setAttribute("data-index", index.toString());
+
+    // Slider change handler
+    sliderEl.addEventListener("input", (e) => {
+        const target = e.target as HTMLInputElement;
+        const newValue = parseInt(target.value);
+        valueEl.textContent = newValue.toString();
+        propertyModules[index].value = newValue;
+    });
+
+    // Value input handler
+    valueEl.addEventListener("input", (e) => {
+        const target = e.target as HTMLElement;
+        const text = target.textContent || "";
+        const numericValue = text.replace(/[^0-9]/g, "");
+        
+        if (text !== numericValue) {
+            target.textContent = numericValue;
+        }
+        
+        const numValue = parseInt(numericValue) || 1;
+        const clampedValue = Math.max(1, Math.min(100, numValue));
+        
+        if (clampedValue !== numValue) {
+            target.textContent = clampedValue.toString();
+        }
+        
+        sliderEl.value = clampedValue.toString();
+        propertyModules[index].value = clampedValue;
+    });
+
+    // Prevent non-numeric input
+    valueEl.addEventListener("keydown", (e) => {
+        const key = e.key;
+        if (!/^[0-9]$/.test(key) && key !== "Backspace" && key !== "Delete" && key !== "ArrowLeft" && key !== "ArrowRight" && key !== "Tab") {
+            e.preventDefault();
+        }
+    });
+
+    // Ensure value is within bounds on blur
+    valueEl.addEventListener("blur", () => {
+        const currentValue = parseInt(valueEl.textContent || "1") || 1;
+        const clampedValue = Math.max(1, Math.min(100, currentValue));
+        valueEl.textContent = clampedValue.toString();
+        sliderEl.value = clampedValue.toString();
+        propertyModules[index].value = clampedValue;
+    });
+
+    moduleDiv.appendChild(titleEl);
+    moduleDiv.appendChild(valueEl);
+    moduleDiv.appendChild(sliderEl);
+
+    return moduleDiv;
+}
+
+function initializePropertyModules() {
+    if (!propertyModulesContainer) return;
+    
+    propertyModulesContainer.innerHTML = "";
+    propertyModules.forEach((module, index) => {
+        const moduleEl = createPropertyModule(module, index);
+        propertyModulesContainer.appendChild(moduleEl);
+    });
+}
+
+// Initialize property modules on load
+initializePropertyModules();
 
 // ===== COLYSEUS CLIENT =====
 // Use current origin (works both locally and when deployed)
