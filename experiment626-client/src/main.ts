@@ -88,6 +88,15 @@ function createPropertyModule(module: PropertyModule, index: number): HTMLElemen
         
         if (clampedValue !== numValue) {
             target.textContent = clampedValue.toString();
+            // Restore cursor position at the end
+            const newRange = document.createRange();
+            newRange.selectNodeContents(target);
+            newRange.collapse(false);
+            const newSelection = window.getSelection();
+            if (newSelection) {
+                newSelection.removeAllRanges();
+                newSelection.addRange(newRange);
+            }
         }
         
         sliderEl.value = clampedValue.toString();
