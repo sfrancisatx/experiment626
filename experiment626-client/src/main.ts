@@ -702,6 +702,13 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
 
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
+        // Add green circle for owned stars
+        if (star.owner === empireId) {
+            const greenCircle = new PIXI.Graphics();
+            greenCircle.circle(star.x, star.y, 1).fill({ color: 0x00FF00, alpha: 0.8 });
+            stage.addChild(greenCircle);
+        }
+
         const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
         sprite.width = 2; // fixed size in galaxy units
         sprite.height = 2;
