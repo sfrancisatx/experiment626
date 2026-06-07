@@ -191,7 +191,7 @@ function updateStartupStatus(message: string) {
 }
 
 function showStartButton() {
-    startGameBtn.style.display = "block";
+    startGameBtn.style.display = "inline-block";
 }
 
 function hideStartButton() {
