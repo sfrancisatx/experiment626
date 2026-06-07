@@ -631,7 +631,26 @@ export class Galaxy extends Room<GalaxyState> {
         this.updatePlayersStarView("rename", {starId: id, name: name, empireId: empireId});
     }
     destroyFleet(id: string) {
+        const fleet = this.fleetList.get(id);
+        if (!fleet) {
+            console.error(`Fleet not found for destruction\nFleet ID: ${id}\nLocation: Galaxy.destroyFleet()`);
+            return;
+        }
+        
+        // Remove from fleetList
         this.fleetList.delete(id);
+        
+        // Remove FleetState from all player view states
+        this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+            let newFleetList = playerViewState.fleetList.filter((fleetState: FleetState) => {
+                if (fleetState.id === id) {
+                    return false;
+                }
+                return true;
+            });
+            playerViewState.fleetList.clear();
+            playerViewState.fleetList.push(...newFleetList);
+        });
     }
     fleetArrive(fleet: Fleet) {
         var star = this.starList.get(fleet.state.destinationStarId);

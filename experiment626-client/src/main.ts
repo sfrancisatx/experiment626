@@ -705,7 +705,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         // Add green circle for owned stars
         if (star.owner === empireId) {
             const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 1).fill({ color: 0x00FF00, alpha: 0.8 });
+            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.8 });
             stage.addChild(greenCircle);
         }
 
