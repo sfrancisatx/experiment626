@@ -163,6 +163,15 @@ let tooltipXOffset = 15;
 let tooltipYOffset = 0;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 const infoPanelEl = document.getElementById("info-panel") as HTMLElement;
+console.log("Info panel element found:", infoPanelEl);
+// Test: show panel on load to verify it's working
+setTimeout(() => {
+    if (infoPanelEl) {
+        infoPanelEl.textContent = "Test - Info panel is visible";
+        infoPanelEl.style.display = "block";
+        console.log("Test: Info panel made visible");
+    }
+}, 2000);
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -756,6 +765,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         });
 
         sprite.on("click", () => {
+            console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
 
@@ -787,6 +797,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         sprite.fleetData = fleet;
 
         sprite.on("click", () => {
+            console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
 
@@ -848,8 +859,10 @@ function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
 }
 
 function showInfoPanel(displayText: string) {
+    console.log("showInfoPanel called with text:", displayText);
     infoPanelEl.textContent = displayText;
     infoPanelEl.style.display = "block";
+    console.log("Info panel display style:", infoPanelEl.style.display);
 }
 
 function getStarInfoText(star: StarState): string {
