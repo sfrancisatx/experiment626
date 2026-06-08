@@ -712,7 +712,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         if (star.owner === empireName) {
             console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.8 });
+            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.3 });
             stage.addChild(greenCircle);
         }
 
