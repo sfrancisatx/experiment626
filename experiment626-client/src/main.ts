@@ -4,6 +4,7 @@ import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
 import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
 import type { StarState } from "colyseusTypes/StarState";
+import type { FleetState } from "colyseusTypes/FleetState";
 import { ensureAuthenticated, getIdToken, completeEmailSignIn } from "./firebase";
 
 // ===== HTML ELEMENTS =====
@@ -161,6 +162,7 @@ let hoveredStar: {star: StarState, sprite: PIXI.Sprite} | null = null;
 let tooltipXOffset = 15;
 let tooltipYOffset = 0;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+const infoPanelEl = document.getElementById("info-panel") as HTMLElement;
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -703,6 +705,17 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     stage.addChild(tooltipLayer);
     stage.addChild(tooltip);
 
+    // Add background click handler to hide info panel
+    stage.interactive = true;
+    stage.hitArea = app.screen;
+    stage.on("click", (event) => {
+        // Check if click was on a star or fleet sprite
+        if (event.target && (event.target as any).starData || (event.target as any).fleetData) {
+            return; // Don't hide if clicking on star or fleet
+        }
+        infoPanelEl.style.display = "none";
+    });
+
     console.log("empireId:", empireId);
     console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
 
@@ -712,7 +725,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         if (star.owner === empireName) {
             console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.3 });
+            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.15 });
             stage.addChild(greenCircle);
         }
 
@@ -742,6 +755,10 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
             hoveredStar = null;
         });
 
+        sprite.on("click", () => {
+            showInfoPanel(getStarInfoText(star));
+        });
+
         stage.addChild(sprite);
     });
 
@@ -757,12 +774,22 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
         const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
 
-        const sprite = PIXI.Sprite.from('assets/fleet.png');
+        const sprite = PIXI.Sprite.from('assets/fleet.png') as PIXI.Sprite & { fleetData: FleetState };
         sprite.width = 2;
         sprite.height = 2;
         sprite.anchor.set(0.5);
         sprite.x = fleetX;
         sprite.y = fleetY;
+
+        sprite.interactive = true;
+        sprite.cursor = "pointer";
+        sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
+        sprite.fleetData = fleet;
+
+        sprite.on("click", () => {
+            showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
+        });
+
         stage.addChild(sprite);
     });
 }
@@ -818,4 +845,39 @@ function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
             tooltipEl.style.whiteSpace = "pre-line";
             tooltipEl.style.display = "block";
             tooltipEl.style.opacity = "1";
+}
+
+function showInfoPanel(displayText: string) {
+    infoPanelEl.textContent = displayText;
+    infoPanelEl.style.display = "block";
+}
+
+function getStarInfoText(star: StarState): string {
+    let displayText: string = "";
+    if (star.name !== "???") {
+        displayText += `${star.name}\n`;
+    }
+    if (star.owner !== "???") {
+        displayText += `Owner: ${star.owner}\n`;
+    }
+    if (star.shipCount !== -1) {
+        displayText += `Ships: ${star.shipCount}\n`;
+    }
+    if (star.factoryCount !== -1) {
+        displayText += `Factories: ${star.factoryCount}\n`;
+    }
+    if (star.wealthProduction !== -1) {
+        displayText += `Wealth Production: ${star.wealthProduction}\n`;
+    }
+    return displayText;
+}
+
+function getFleetInfoText(fleet: FleetState, sourceStar: StarState, destinationStar: StarState): string {
+    let displayText: string = "";
+    displayText += `Fleet ID: ${fleet.id}\n`;
+    displayText += `Owner: ${fleet.owner}\n`;
+    displayText += `Ships: ${fleet.ships}\n`;
+    displayText += `From: ${sourceStar.name}\n`;
+    displayText += `To: ${destinationStar.name}\n`;
+    return displayText;
 }
