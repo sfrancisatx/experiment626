@@ -164,14 +164,6 @@ let tooltipYOffset = 0;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 const infoPanelEl = document.getElementById("info-panel") as HTMLElement;
 console.log("Info panel element found:", infoPanelEl);
-// Test: show panel on load to verify it's working
-setTimeout(() => {
-    if (infoPanelEl) {
-        infoPanelEl.textContent = "Test - Info panel is visible";
-        infoPanelEl.style.display = "block";
-        console.log("Test: Info panel made visible");
-    }
-}, 2000);
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -717,11 +709,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     // Add background click handler to hide info panel
     stage.interactive = true;
     stage.hitArea = app.screen;
-    stage.on("click", (event) => {
-        // Check if click was on a star or fleet sprite
-        if (event.target && (event.target as any).starData || (event.target as any).fleetData) {
-            return; // Don't hide if clicking on star or fleet
-        }
+    stage.on("click", () => {
         infoPanelEl.style.display = "none";
     });
 
@@ -764,7 +752,8 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
             hoveredStar = null;
         });
 
-        sprite.on("click", () => {
+        sprite.on("click", (event) => {
+            event.stopPropagation();
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -796,7 +785,8 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
         sprite.fleetData = fleet;
 
-        sprite.on("click", () => {
+        sprite.on("click", (event) => {
+            event.stopPropagation();
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
