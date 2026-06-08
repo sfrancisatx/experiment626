@@ -1007,6 +1007,7 @@ export class Galaxy extends Room<GalaxyState> {
 
         // Check if user has an existing empire in this galaxy (re-attachment)
         let empireId: string;
+        let empireName: string = "";
         let reattached = false;
         
         if (userId) {
@@ -1016,6 +1017,7 @@ export class Galaxy extends Room<GalaxyState> {
                 // Re-attach to existing empire
                 empireId = existingAssociation.empireId;
                 const empire = this.empireList.get(empireId)!;
+                empireName = empire.state.name;
                 empire.state.ownerId = client.sessionId; // Update to new session ID
                 this.playerToEmpireList.set(client.sessionId, empireId);
                 this.userIdToEmpireList.set(userId, empireId);
@@ -1033,7 +1035,7 @@ export class Galaxy extends Room<GalaxyState> {
 
         // If no existing empire, create a new one
         if (!reattached) {
-            const empireName = displayName + "'s Empire";
+            empireName = displayName + "'s Empire";
             empireId = this.idGenerator();
             this.empireList.set(empireId, new Empire(
                 new EmpireState(), 
@@ -1059,6 +1061,6 @@ export class Galaxy extends Room<GalaxyState> {
             }
         }
 
-        client.send("yourIDs", {Id: client.sessionId, empireId: empireId!, userId: userId});
+        client.send("yourIDs", {Id: client.sessionId, empireId: empireId!, empireName: empireName, userId: userId});
     }
 }

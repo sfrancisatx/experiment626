@@ -146,6 +146,7 @@ initializePropertyModules();
 const client = new Client(window.location.origin);
 let sessionId = "";
 let empireId = "";
+let empireName = "";
 let playerViewState: PlayerViewState | null = null;
 let galaxyState: GalaxyState | null = null;
 let pixiApp: PIXIAppPlus | null = null;
@@ -338,6 +339,8 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             if (type === "yourIDs") {
                 sessionId = message.Id;
                 empireId = message.empireId;
+                empireName = message.empireName;
+                console.log("Received yourIDs - empireId:", empireId, "empireName:", empireName);
             }
             if (type === "playerViewState") {
                 playerViewState = message;
@@ -706,8 +709,8 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
-        if (star.owner === empireId) {
-            console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireId:", empireId);
+        if (star.owner === empireName) {
+            console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
             greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.8 });
             stage.addChild(greenCircle);
