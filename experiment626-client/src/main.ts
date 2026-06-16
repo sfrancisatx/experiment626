@@ -156,6 +156,11 @@ let galaxyUnits = 1;
 // ===== GAME INITIALIZATION PLAYERVIEWSTATE COUNTER =====
 let playerViewStateCount = 0;
 
+// ===== STATE TRACKING FOR RENDERING =====
+let lastPlayerViewState: PlayerViewState | null = null;
+let lastGalaxyState: GalaxyState | null = null;
+let starSprites: PIXI.Sprite[] = [];
+
 
 // ===== TOOLTIP =====
 let hoveredStar: {star: StarState, sprite: PIXI.Sprite} | null = null;
@@ -697,19 +702,34 @@ function setupCamera(app: PIXIAppPlus) {
 }
 
 
-function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
+function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     if (!app) return;
     const stage = app.stage;
     const tooltipLayer = app.tooltipLayer;
     const tooltip = app.tooltip;
+
+    // Clear stage and preserve tooltip layer
     stage.removeChildren();
     stage.addChild(tooltipLayer);
     stage.addChild(tooltip);
 
-    // Add background click handler to hide info panel
+    // Remove old star sprites
+    starSprites = [];
+
+    // Remove existing stage click handler to prevent duplicates
+    stage.off("click");
+
+    // Add background click handler to hide info panel (only if not clicking on star/fleet)
     stage.interactive = true;
     stage.hitArea = app.screen;
-    stage.on("click", () => {
+    stage.on("click", (event) => {
+        // Check if click was on a star or fleet sprite
+        const target = event.target as any;
+        console.log("Stage click - target:", target, "has starData:", !!target.starData, "has fleetData:", !!target.fleetData);
+        if (target.starData || target.fleetData) {
+            return; // Don't hide if clicking on star or fleet
+        }
+        console.log("Hiding info panel - background click");
         infoPanelEl.style.display = "none";
     });
 
@@ -753,12 +773,25 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         });
 
         sprite.on("click", (event) => {
-            event.stopPropagation();
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
 
         stage.addChild(sprite);
+        starSprites.push(sprite);
+    });
+}
+
+function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null) {
+    if (!app) return;
+    const stage = app.stage;
+
+    // Remove old fleet sprites (we'll recreate them every frame for animation)
+    const children = [...stage.children];
+    children.forEach(child => {
+        if ((child as any).fleetData) {
+            stage.removeChild(child);
+        }
     });
 
     // Draw Fleets with smooth interpolation
@@ -786,13 +819,25 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         sprite.fleetData = fleet;
 
         sprite.on("click", (event) => {
-            event.stopPropagation();
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
 
         stage.addChild(sprite);
     });
+}
+
+function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
+    if (!app) return;
+    const stage = app.stage;
+    const tooltipLayer = app.tooltipLayer;
+    const tooltip = app.tooltip;
+    stage.removeChildren();
+    stage.addChild(tooltipLayer);
+    stage.addChild(tooltip);
+
+    renderStars(viewState, app);
+    renderFleets(galaxyState, viewState, app);
 }
 
 
@@ -813,7 +858,13 @@ function updateDebugUI(panel1: string, panel2: string, panel3: string) {
 }
 function renderLoop() {
     if (pixiApp && playerViewState && galaxyState) {
-        renderPlayerViewState(galaxyState, playerViewState, pixiApp, galaxyUnits);
+        // Only render stars if playerViewState has changed
+        if (playerViewState !== lastPlayerViewState) {
+            renderStars(playerViewState, pixiApp);
+            lastPlayerViewState = playerViewState;
+        }
+        // Render fleets every frame for animation
+        renderFleets(galaxyState, playerViewState, pixiApp);
     }
     requestAnimationFrame(renderLoop); // 🟢 Calls itself repeatedly, 60fps
 }
