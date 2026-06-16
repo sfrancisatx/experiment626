@@ -719,16 +719,10 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     // Remove existing stage click handler to prevent duplicates
     stage.off("click");
 
-    // Add background click handler to hide info panel (only if not clicking on star/fleet)
+    // Add background click handler to hide info panel
     stage.interactive = true;
     stage.hitArea = app.screen;
-    stage.on("click", (event) => {
-        // Check if click was on a star or fleet sprite
-        const target = event.target as any;
-        console.log("Stage click - target:", target, "has starData:", !!target.starData, "has fleetData:", !!target.fleetData);
-        if (target.starData || target.fleetData) {
-            return; // Don't hide if clicking on star or fleet
-        }
+    stage.on("click", () => {
         console.log("Hiding info panel - background click");
         infoPanelEl.style.display = "none";
     });
@@ -773,6 +767,7 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
         });
 
         sprite.on("click", (event) => {
+            event.stopPropagation();
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -819,6 +814,7 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
         sprite.fleetData = fleet;
 
         sprite.on("click", (event) => {
+            event.stopPropagation();
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
