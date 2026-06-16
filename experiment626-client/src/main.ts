@@ -749,6 +749,7 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     stage.hitArea = app.screen;
     stage.on("click", (event) => {
         if (isDragging) return;
+        console.log("Stage click - event.target:", event.target, "event.target === stage:", event.target === stage);
         // Check if click was on the stage itself (background) vs a sprite
         if (event.target === stage) {
             console.log("Hiding info panel - background click");
