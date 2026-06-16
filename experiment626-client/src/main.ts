@@ -749,32 +749,58 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null, curren
     stage.hitArea = app.screen;
     stage.on("click", (event) => {
         if (isDragging) return;
-        
+
         // Convert click position to world coordinates
         const rect = app.view.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
         const worldX = (canvasX - app.stage.position.x) / app.stage.scale.x;
         const worldY = (canvasY - app.stage.position.y) / app.stage.scale.y;
-        
+
         // Check if click is on a star
         const clickedStar = findStarAtPosition(worldX, worldY, viewState);
+
+        // Check if click is on a fleet
+        let clickedFleet = null;
+        if (currentGalaxyState) {
+            clickedFleet = findFleetAtPosition(worldX, worldY, currentGalaxyState, viewState);
+        }
+
+        // Handle overlapping star and fleet clicks
+        if (clickedStar && clickedFleet) {
+            console.log("Click on both star and fleet - star:", clickedStar.id, "fleet:", clickedFleet.fleet.id);
+
+            // Check if the current panel text starts with this star's name
+            const currentPanelText = infoPanelEl.textContent || "";
+            const starInfoText = getStarInfoText(clickedStar);
+
+            // If star is currently displayed (text matches), switch to fleet
+            if (currentPanelText === starInfoText) {
+                console.log("Star already displayed, switching to fleet");
+                showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
+                return;
+            }
+
+            // Otherwise show the star
+            console.log("Showing star");
+            showInfoPanel(starInfoText);
+            return;
+        }
+
+        // Handle star-only click
         if (clickedStar) {
             console.log("Star clicked:", clickedStar.id);
             showInfoPanel(getStarInfoText(clickedStar));
             return;
         }
-        
-        // Check if click is on a fleet
-        if (currentGalaxyState) {
-            const clickedFleet = findFleetAtPosition(worldX, worldY, currentGalaxyState, viewState);
-            if (clickedFleet) {
-                console.log("Fleet clicked:", clickedFleet.fleet.id);
-                showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
-                return;
-            }
+
+        // Handle fleet-only click
+        if (clickedFleet) {
+            console.log("Fleet clicked:", clickedFleet.fleet.id);
+            showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
+            return;
         }
-        
+
         // If not on star or fleet, hide info panel
         console.log("Hiding info panel - background click");
         infoPanelEl.style.display = "none";
