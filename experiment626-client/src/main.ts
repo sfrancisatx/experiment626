@@ -798,6 +798,7 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
 
         sprite.on("click", (event) => {
             if (isDragging) return;
+            event.stopPropagation();
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -845,6 +846,7 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
 
         sprite.on("click", (event) => {
             if (isDragging) return;
+            event.stopPropagation();
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
