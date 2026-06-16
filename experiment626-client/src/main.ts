@@ -164,7 +164,6 @@ let starSprites: PIXI.Sprite[] = [];
 // ===== CLICK DETECTION =====
 let mouseDownPos = { x: 0, y: 0 };
 let isDragging = false;
-let spriteClicked = false;
 
 
 // ===== TOOLTIP =====
@@ -728,7 +727,7 @@ function setupCamera(app: PIXIAppPlus) {
 }
 
 
-function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
+function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null, currentGalaxyState: GalaxyState | null = galaxyState) {
     if (!app) return;
     const stage = app.stage;
     const tooltipLayer = app.tooltipLayer;
@@ -745,15 +744,38 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     // Remove existing stage click handler to prevent duplicates
     stage.off("click");
 
-    // Add stage click handler to hide info panel when clicking on background
+    // Add stage click handler using position-based detection
     stage.interactive = true;
     stage.hitArea = app.screen;
     stage.on("click", (event) => {
         if (isDragging) return;
-        if (spriteClicked) {
-            spriteClicked = false;
-            return; // Don't hide if clicking on star or fleet
+        
+        // Convert click position to world coordinates
+        const rect = app.view.getBoundingClientRect();
+        const canvasX = event.clientX - rect.left;
+        const canvasY = event.clientY - rect.top;
+        const worldX = (canvasX - app.stage.position.x) / app.stage.scale.x;
+        const worldY = (canvasY - app.stage.position.y) / app.stage.scale.y;
+        
+        // Check if click is on a star
+        const clickedStar = findStarAtPosition(worldX, worldY, viewState);
+        if (clickedStar) {
+            console.log("Star clicked:", clickedStar.id);
+            showInfoPanel(getStarInfoText(clickedStar));
+            return;
         }
+        
+        // Check if click is on a fleet
+        if (currentGalaxyState) {
+            const clickedFleet = findFleetAtPosition(worldX, worldY, currentGalaxyState, viewState);
+            if (clickedFleet) {
+                console.log("Fleet clicked:", clickedFleet.fleet.id);
+                showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
+                return;
+            }
+        }
+        
+        // If not on star or fleet, hide info panel
         console.log("Hiding info panel - background click");
         infoPanelEl.style.display = "none";
     });
@@ -797,13 +819,6 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
             hoveredStar = null;
         });
 
-        sprite.on("click", (event) => {
-            if (isDragging) return;
-            spriteClicked = true;
-            console.log("Star clicked:", star.id);
-            showInfoPanel(getStarInfoText(star));
-        });
-
         stage.addChild(sprite);
         starSprites.push(sprite);
     });
@@ -845,13 +860,6 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
         sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
         sprite.fleetData = fleet;
 
-        sprite.on("click", (event) => {
-            if (isDragging) return;
-            spriteClicked = true;
-            console.log("Fleet clicked:", fleet.id);
-            showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
-        });
-
         stage.addChild(sprite);
     });
 }
@@ -889,7 +897,7 @@ function renderLoop() {
     if (pixiApp && playerViewState && galaxyState) {
         // Only render stars if playerViewState has changed
         if (playerViewState !== lastPlayerViewState) {
-            renderStars(playerViewState, pixiApp);
+            renderStars(playerViewState, pixiApp, galaxyState);
             lastPlayerViewState = playerViewState;
         }
         // Render fleets every frame for animation
@@ -963,4 +971,39 @@ function getFleetInfoText(fleet: FleetState, sourceStar: StarState, destinationS
     displayText += `From: ${sourceStar.name}\n`;
     displayText += `To: ${destinationStar.name}\n`;
     return displayText;
+}
+
+// ===== CLICK DETECTION HELPER =====
+function findStarAtPosition(worldX: number, worldY: number, viewState: PlayerViewState): StarState | null {
+    const hitThreshold = 3; // Same as sprite hit area radius
+    for (const star of viewState.starList) {
+        const dx = Math.abs(star.x - worldX);
+        const dy = Math.abs(star.y - worldY);
+        if (dx <= hitThreshold && dy <= hitThreshold) {
+            return star;
+        }
+    }
+    return null;
+}
+
+function findFleetAtPosition(worldX: number, worldY: number, galaxyState: GalaxyState, viewState: PlayerViewState): { fleet: FleetState, sourceStar: StarState, destinationStar: StarState } | null {
+    const hitThreshold = 3; // Same as sprite hit area radius
+    for (const fleet of viewState.fleetList) {
+        const sourceStar = viewState.starList.find(s => s.id === fleet.sourceStarId);
+        const destinationStar = viewState.starList.find(s => s.id === fleet.destinationStarId);
+        if (!sourceStar || !destinationStar) continue;
+
+        const percentDone = (galaxyState.clockTime - fleet.startTime) / (fleet.endTime - fleet.startTime);
+        const clampedPercent = Math.max(0, Math.min(1, percentDone));
+
+        const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
+        const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
+
+        const dx = Math.abs(fleetX - worldX);
+        const dy = Math.abs(fleetY - worldY);
+        if (dx <= hitThreshold && dy <= hitThreshold) {
+            return { fleet, sourceStar, destinationStar };
+        }
+    }
+    return null;
 }
