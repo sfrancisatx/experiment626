@@ -161,6 +161,11 @@ let lastPlayerViewState: PlayerViewState | null = null;
 let lastGalaxyState: GalaxyState | null = null;
 let starSprites: PIXI.Sprite[] = [];
 
+// ===== CLICK DETECTION =====
+let mouseDownPos = { x: 0, y: 0 };
+let isDragging = false;
+let spriteClicked = false;
+
 
 // ===== TOOLTIP =====
 let hoveredStar: {star: StarState, sprite: PIXI.Sprite} | null = null;
@@ -584,6 +589,41 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     app.tooltip = tooltip;
     app.tooltipLayer = tooltipLayer;
 
+    // Track mouse down/up to distinguish clicks from drags
+    app.view.addEventListener("mousedown", (e) => {
+        mouseDownPos = { x: e.clientX, y: e.clientY };
+        isDragging = false;
+    });
+
+    app.view.addEventListener("mousemove", (e) => {
+        if (mouseDownPos.x !== 0 || mouseDownPos.y !== 0) {
+            const dx = e.clientX - mouseDownPos.x;
+            const dy = e.clientY - mouseDownPos.y;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                isDragging = true;
+            }
+        }
+    });
+
+    app.view.addEventListener("mouseup", () => {
+        mouseDownPos = { x: 0, y: 0 };
+        setTimeout(() => { isDragging = false; }, 100);
+    });
+
+    // Document click handler to hide info panel when clicking on background
+    document.addEventListener("click", (e) => {
+        if (isDragging) return;
+        if (spriteClicked) {
+            spriteClicked = false;
+            return; // Don't hide if clicking on star or fleet
+        }
+        // Check if click was on the PIXI canvas
+        if (e.target === app.view || app.view.contains(e.target as Node)) {
+            console.log("Hiding info panel - background click");
+            infoPanelEl.style.display = "none";
+        }
+    });
+
     return app;
 }
 
@@ -719,14 +759,6 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     // Remove existing stage click handler to prevent duplicates
     stage.off("click");
 
-    // Add background click handler to hide info panel
-    stage.interactive = true;
-    stage.hitArea = app.screen;
-    stage.on("click", () => {
-        console.log("Hiding info panel - background click");
-        infoPanelEl.style.display = "none";
-    });
-
     //console.log("empireId:", empireId);
     //console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
 
@@ -767,7 +799,8 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
         });
 
         sprite.on("click", (event) => {
-            event.stopPropagation();
+            if (isDragging) return;
+            spriteClicked = true;
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -814,7 +847,8 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
         sprite.fleetData = fleet;
 
         sprite.on("click", (event) => {
-            event.stopPropagation();
+            if (isDragging) return;
+            spriteClicked = true;
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
