@@ -733,14 +733,14 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
         infoPanelEl.style.display = "none";
     });
 
-    console.log("empireId:", empireId);
-    console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
+    //console.log("empireId:", empireId);
+    //console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
 
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
         if (star.owner === empireName) {
-            console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
+            //console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
             greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.15 });
             stage.addChild(greenCircle);
