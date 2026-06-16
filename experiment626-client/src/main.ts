@@ -164,7 +164,6 @@ let starSprites: PIXI.Sprite[] = [];
 // ===== CLICK DETECTION =====
 let mouseDownPos = { x: 0, y: 0 };
 let isDragging = false;
-let spriteClicked = false;
 
 
 // ===== TOOLTIP =====
@@ -610,20 +609,6 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
         setTimeout(() => { isDragging = false; }, 100);
     });
 
-    // Document click handler to hide info panel when clicking on background
-    document.addEventListener("click", (e) => {
-        if (isDragging) return;
-        if (spriteClicked) {
-            spriteClicked = false;
-            return; // Don't hide if clicking on star or fleet
-        }
-        // Check if click was on the PIXI canvas
-        if (e.target === app.view || app.view.contains(e.target as Node)) {
-            console.log("Hiding info panel - background click");
-            infoPanelEl.style.display = "none";
-        }
-    });
-
     return app;
 }
 
@@ -759,6 +744,18 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     // Remove existing stage click handler to prevent duplicates
     stage.off("click");
 
+    // Add stage click handler to hide info panel when clicking on background
+    stage.interactive = true;
+    stage.hitArea = app.screen;
+    stage.on("click", (event) => {
+        if (isDragging) return;
+        // Check if click was on the stage itself (background) vs a sprite
+        if (event.target === stage) {
+            console.log("Hiding info panel - background click");
+            infoPanelEl.style.display = "none";
+        }
+    });
+
     //console.log("empireId:", empireId);
     //console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
 
@@ -800,7 +797,6 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
 
         sprite.on("click", (event) => {
             if (isDragging) return;
-            spriteClicked = true;
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -848,7 +844,6 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
 
         sprite.on("click", (event) => {
             if (isDragging) return;
-            spriteClicked = true;
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
