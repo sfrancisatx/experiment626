@@ -164,6 +164,7 @@ let starSprites: PIXI.Sprite[] = [];
 // ===== CLICK DETECTION =====
 let mouseDownPos = { x: 0, y: 0 };
 let isDragging = false;
+let spriteClicked = false;
 
 
 // ===== TOOLTIP =====
@@ -749,12 +750,12 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
     stage.hitArea = app.screen;
     stage.on("click", (event) => {
         if (isDragging) return;
-        console.log("Stage click - event.target:", event.target, "event.target === stage:", event.target === stage);
-        // Check if click was on the stage itself (background) vs a sprite
-        if (event.target === stage) {
-            console.log("Hiding info panel - background click");
-            infoPanelEl.style.display = "none";
+        if (spriteClicked) {
+            spriteClicked = false;
+            return; // Don't hide if clicking on star or fleet
         }
+        console.log("Hiding info panel - background click");
+        infoPanelEl.style.display = "none";
     });
 
     //console.log("empireId:", empireId);
@@ -798,7 +799,7 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null) {
 
         sprite.on("click", (event) => {
             if (isDragging) return;
-            event.stopPropagation();
+            spriteClicked = true;
             console.log("Star clicked:", star.id);
             showInfoPanel(getStarInfoText(star));
         });
@@ -846,7 +847,7 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
 
         sprite.on("click", (event) => {
             if (isDragging) return;
-            event.stopPropagation();
+            spriteClicked = true;
             console.log("Fleet clicked:", fleet.id);
             showInfoPanel(getFleetInfoText(fleet, sourceStar, destinationStar));
         });
