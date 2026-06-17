@@ -772,32 +772,32 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null, curren
 
             // Check if the current panel text starts with this star's name
             const currentPanelText = infoPanelEl.textContent || "";
-            const starInfoText = getStarInfoText(clickedStar);
+            const starInfoHTML = getStarInfoHTML(clickedStar);
 
             // If star is currently displayed (text matches), switch to fleet
-            if (currentPanelText === starInfoText) {
+            if (currentPanelText.includes(clickedStar.name)) {
                 console.log("Star already displayed, switching to fleet");
-                showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
+                showInfoPanel(getFleetInfoHTML(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
                 return;
             }
 
             // Otherwise show the star
             console.log("Showing star");
-            showInfoPanel(starInfoText);
+            showInfoPanel(starInfoHTML);
             return;
         }
 
         // Handle star-only click
         if (clickedStar) {
             console.log("Star clicked:", clickedStar.id);
-            showInfoPanel(getStarInfoText(clickedStar));
+            showInfoPanel(getStarInfoHTML(clickedStar));
             return;
         }
 
         // Handle fleet-only click
         if (clickedFleet) {
             console.log("Fleet clicked:", clickedFleet.fleet.id);
-            showInfoPanel(getFleetInfoText(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
+            showInfoPanel(getFleetInfoHTML(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
             return;
         }
 
@@ -962,41 +962,153 @@ function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
             tooltipEl.style.opacity = "1";
 }
 
-function showInfoPanel(displayText: string) {
-    console.log("showInfoPanel called with text:", displayText);
-    infoPanelEl.textContent = displayText;
+function showInfoPanel(htmlContent: string) {
+    console.log("showInfoPanel called");
+    infoPanelEl.innerHTML = htmlContent;
     infoPanelEl.style.display = "block";
     console.log("Info panel display style:", infoPanelEl.style.display);
 }
 
-function getStarInfoText(star: StarState): string {
-    let displayText: string = "";
-    if (star.name !== "???") {
-        displayText += `${star.name}\n`;
-    }
-    if (star.owner !== "???") {
-        displayText += `Owner: ${star.owner}\n`;
-    }
+function getStarInfoHTML(star: StarState): string {
+    const starName = star.name !== "???" ? star.name : "Unknown Star";
+    const ownerName = star.owner !== "???" ? star.owner : "Unknown Owner";
+    
+    let propertiesHTML = "";
+    
+    // Ships property
     if (star.shipCount !== -1) {
-        displayText += `Ships: ${star.shipCount}\n`;
+        propertiesHTML += `
+            <div class="info-panel-cell">
+                <div class="info-panel-graphic" style="background: #4CAF50;"></div>
+                <div class="info-panel-property-content">
+                    <div class="info-panel-property-name">Ships</div>
+                    <div class="info-panel-property-value">${star.shipCount}</div>
+                </div>
+            </div>
+        `;
     }
-    if (star.factoryCount !== -1) {
-        displayText += `Factories: ${star.factoryCount}\n`;
-    }
+    
+    // Wealth property
     if (star.wealthProduction !== -1) {
-        displayText += `Wealth Production: ${star.wealthProduction}\n`;
+        propertiesHTML += `
+            <div class="info-panel-cell">
+                <div class="info-panel-graphic" style="background: #FFC107;"></div>
+                <div class="info-panel-property-content">
+                    <div class="info-panel-property-name">Wealth</div>
+                    <div class="info-panel-property-value">${star.wealthProduction}</div>
+                </div>
+            </div>
+        `;
     }
-    return displayText;
+    
+    // Factories property
+    if (star.factoryCount !== -1) {
+        propertiesHTML += `
+            <div class="info-panel-cell">
+                <div class="info-panel-graphic" style="background: #2196F3;"></div>
+                <div class="info-panel-property-content">
+                    <div class="info-panel-property-name">Factories</div>
+                    <div class="info-panel-property-value">${star.factoryCount}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Empty cell to complete 2x2 grid
+    propertiesHTML += `<div class="info-panel-cell"></div>`;
+    
+    return `
+        <div class="info-panel-title">${starName}</div>
+        <div class="info-panel-subtitle">${ownerName}</div>
+        <div class="info-panel-grid">
+            ${propertiesHTML}
+        </div>
+        <style>
+            .info-panel-title {
+                font-size: 24px;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 8px;
+            }
+            .info-panel-subtitle {
+                font-size: 12px;
+                text-align: center;
+                margin-bottom: 20px;
+                opacity: 0.8;
+            }
+            .info-panel-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }
+            .info-panel-cell {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .info-panel-graphic {
+                width: 40px;
+                height: 40px;
+                flex-shrink: 0;
+            }
+            .info-panel-property-content {
+                display: flex;
+                flex-direction: column;
+            }
+            .info-panel-property-name {
+                font-size: 10px;
+                opacity: 0.7;
+                margin-bottom: 2px;
+            }
+            .info-panel-property-value {
+                font-size: 18px;
+                font-weight: 500;
+            }
+        </style>
+    `;
 }
 
-function getFleetInfoText(fleet: FleetState, sourceStar: StarState, destinationStar: StarState): string {
-    let displayText: string = "";
-    displayText += `Fleet ID: ${fleet.id}\n`;
-    displayText += `Owner: ${fleet.owner}\n`;
-    displayText += `Ships: ${fleet.ships}\n`;
-    displayText += `From: ${sourceStar.name}\n`;
-    displayText += `To: ${destinationStar.name}\n`;
-    return displayText;
+function getFleetInfoHTML(fleet: FleetState, sourceStar: StarState, destinationStar: StarState): string {
+    const title = `Convoy from ${sourceStar.name} to ${destinationStar.name}`;
+    
+    return `
+        <div class="info-panel-title">${title}</div>
+        <div class="info-panel-subtitle">${fleet.owner}</div>
+        <div class="info-panel-fleet-content">
+            <div class="info-panel-property-name">Ships</div>
+            <div class="info-panel-property-value-large">${fleet.ships}</div>
+        </div>
+        <style>
+            .info-panel-title {
+                font-size: 20px;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 8px;
+            }
+            .info-panel-subtitle {
+                font-size: 12px;
+                text-align: center;
+                margin-bottom: 40px;
+                opacity: 0.8;
+            }
+            .info-panel-fleet-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin-top: 40px;
+            }
+            .info-panel-property-name {
+                font-size: 12px;
+                opacity: 0.7;
+                margin-bottom: 8px;
+            }
+            .info-panel-property-value-large {
+                font-size: 48px;
+                font-weight: bold;
+            }
+        </style>
+    `;
 }
 
 // ===== CLICK DETECTION HELPER =====

@@ -539,6 +539,15 @@ export class Galaxy extends Room<GalaxyState> {
                     });
                 });
                 break;
+            case "factoryCountChange":
+                this.playerViewStateList.forEach((playerViewState: PlayerViewState) => {
+                    playerViewState.starList.forEach((star: StarState) => {
+                        if (star.id === data.starId && star.factoryCount !== -1) {
+                            star.factoryCount = data.factoryCount;
+                        }
+                    });
+                });
+                break;
             case "positionChange":
                 this.genStarVisibilityMap();
                 this.state.playerIdList.forEach((playerId: string) => {
@@ -803,6 +812,7 @@ export class Galaxy extends Room<GalaxyState> {
         }
         clientEmpire.state.wealth -= clientEmpire.state.factoryCost;
         star.state.factoryCount++;
+        this.updatePlayersStarView("factoryCountChange", {starId: star.state.id, factoryCount: star.state.factoryCount});
         console.log(`\nFactory built on ${star.state.name} (Id: ${star.state.id}) for ${clientEmpire.state.name} (Id: ${clientEmpire.state.id})\nBy Player ${clientId}\nLocation: Galaxy.buildFactory()`);
     }
     upgradeSpeed(clientId: string) {
