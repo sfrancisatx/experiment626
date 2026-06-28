@@ -4,7 +4,6 @@ import { showLandingPage } from "./LandingPage";
 import * as PIXI from "pixi.js";
 import type { PlayerViewState } from "colyseusTypes/PlayerViewState";
 import type { StarState } from "colyseusTypes/StarState";
-import type { FleetState } from "colyseusTypes/FleetState";
 import { ensureAuthenticated, getIdToken, completeEmailSignIn } from "./firebase";
 
 // ===== HTML ELEMENTS =====
@@ -156,23 +155,12 @@ let galaxyUnits = 1;
 // ===== GAME INITIALIZATION PLAYERVIEWSTATE COUNTER =====
 let playerViewStateCount = 0;
 
-// ===== STATE TRACKING FOR RENDERING =====
-let lastPlayerViewState: PlayerViewState | null = null;
-let lastGalaxyState: GalaxyState | null = null;
-let starSprites: PIXI.Sprite[] = [];
-
-// ===== CLICK DETECTION =====
-let mouseDownPos = { x: 0, y: 0 };
-let isDragging = false;
-
 
 // ===== TOOLTIP =====
 let hoveredStar: {star: StarState, sprite: PIXI.Sprite} | null = null;
 let tooltipXOffset = 15;
 let tooltipYOffset = 0;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-const infoPanelEl = document.getElementById("info-panel") as HTMLElement;
-console.log("Info panel element found:", infoPanelEl);
 
 // ===== GALAXY SIZE MAP =====
 const galaxySize = new Map<string, number>([
@@ -588,27 +576,6 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     app.tooltip = tooltip;
     app.tooltipLayer = tooltipLayer;
 
-    // Track mouse down/up to distinguish clicks from drags
-    app.view.addEventListener("mousedown", (e) => {
-        mouseDownPos = { x: e.clientX, y: e.clientY };
-        isDragging = false;
-    });
-
-    app.view.addEventListener("mousemove", (e) => {
-        if (mouseDownPos.x !== 0 || mouseDownPos.y !== 0) {
-            const dx = e.clientX - mouseDownPos.x;
-            const dy = e.clientY - mouseDownPos.y;
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                isDragging = true;
-            }
-        }
-    });
-
-    app.view.addEventListener("mouseup", () => {
-        mouseDownPos = { x: 0, y: 0 };
-        setTimeout(() => { isDragging = false; }, 100);
-    });
-
     return app;
 }
 
@@ -727,95 +694,25 @@ function setupCamera(app: PIXIAppPlus) {
 }
 
 
-function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null, currentGalaxyState: GalaxyState | null = galaxyState) {
+function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
     if (!app) return;
     const stage = app.stage;
     const tooltipLayer = app.tooltipLayer;
     const tooltip = app.tooltip;
-
-    // Clear stage and preserve tooltip layer
     stage.removeChildren();
     stage.addChild(tooltipLayer);
     stage.addChild(tooltip);
 
-    // Remove old star sprites
-    starSprites = [];
-
-    // Remove existing stage click handler to prevent duplicates
-    stage.off("click");
-
-    // Add stage click handler using position-based detection
-    stage.interactive = true;
-    stage.hitArea = app.screen;
-    stage.on("click", (event) => {
-        if (isDragging) return;
-
-        // Convert click position to world coordinates
-        const rect = app.view.getBoundingClientRect();
-        const canvasX = event.clientX - rect.left;
-        const canvasY = event.clientY - rect.top;
-        const worldX = (canvasX - app.stage.position.x) / app.stage.scale.x;
-        const worldY = (canvasY - app.stage.position.y) / app.stage.scale.y;
-
-        // Check if click is on a star
-        const clickedStar = findStarAtPosition(worldX, worldY, viewState);
-
-        // Check if click is on a fleet
-        let clickedFleet = null;
-        if (currentGalaxyState) {
-            clickedFleet = findFleetAtPosition(worldX, worldY, currentGalaxyState, viewState);
-        }
-
-        // Handle overlapping star and fleet clicks
-        if (clickedStar && clickedFleet) {
-            console.log("Click on both star and fleet - star:", clickedStar.id, "fleet:", clickedFleet.fleet.id);
-
-            // Check if the current panel text starts with this star's name
-            const currentPanelText = infoPanelEl.textContent || "";
-            const starInfoHTML = getStarInfoHTML(clickedStar);
-
-            // If star is currently displayed (text matches), switch to fleet
-            if (currentPanelText.includes(clickedStar.name)) {
-                console.log("Star already displayed, switching to fleet");
-                showInfoPanel(getFleetInfoHTML(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
-                return;
-            }
-
-            // Otherwise show the star
-            console.log("Showing star");
-            showInfoPanel(starInfoHTML);
-            return;
-        }
-
-        // Handle star-only click
-        if (clickedStar) {
-            console.log("Star clicked:", clickedStar.id);
-            showInfoPanel(getStarInfoHTML(clickedStar));
-            return;
-        }
-
-        // Handle fleet-only click
-        if (clickedFleet) {
-            console.log("Fleet clicked:", clickedFleet.fleet.id);
-            showInfoPanel(getFleetInfoHTML(clickedFleet.fleet, clickedFleet.sourceStar, clickedFleet.destinationStar));
-            return;
-        }
-
-        // If not on star or fleet, hide info panel
-        console.log("Hiding info panel - background click");
-        infoPanelEl.style.display = "none";
-    });
-
-    //console.log("empireId:", empireId);
-    //console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
+    console.log("empireId:", empireId);
+    console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
 
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
         if (star.owner === empireName) {
-            //console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
+            console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.15 });
+            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.3 });
             stage.addChild(greenCircle);
         }
 
@@ -846,20 +743,6 @@ function renderStars(viewState: PlayerViewState, app: PIXIAppPlus | null, curren
         });
 
         stage.addChild(sprite);
-        starSprites.push(sprite);
-    });
-}
-
-function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null) {
-    if (!app) return;
-    const stage = app.stage;
-
-    // Remove old fleet sprites (we'll recreate them every frame for animation)
-    const children = [...stage.children];
-    children.forEach(child => {
-        if ((child as any).fleetData) {
-            stage.removeChild(child);
-        }
     });
 
     // Draw Fleets with smooth interpolation
@@ -874,33 +757,14 @@ function renderFleets(galaxyState: GalaxyState, viewState: PlayerViewState, app:
         const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
         const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
 
-        const sprite = PIXI.Sprite.from('assets/fleet.png') as PIXI.Sprite & { fleetData: FleetState };
+        const sprite = PIXI.Sprite.from('assets/fleet.png');
         sprite.width = 2;
         sprite.height = 2;
         sprite.anchor.set(0.5);
         sprite.x = fleetX;
         sprite.y = fleetY;
-
-        sprite.interactive = true;
-        sprite.cursor = "pointer";
-        sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
-        sprite.fleetData = fleet;
-
         stage.addChild(sprite);
     });
-}
-
-function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
-    if (!app) return;
-    const stage = app.stage;
-    const tooltipLayer = app.tooltipLayer;
-    const tooltip = app.tooltip;
-    stage.removeChildren();
-    stage.addChild(tooltipLayer);
-    stage.addChild(tooltip);
-
-    renderStars(viewState, app);
-    renderFleets(galaxyState, viewState, app);
 }
 
 
@@ -921,13 +785,7 @@ function updateDebugUI(panel1: string, panel2: string, panel3: string) {
 }
 function renderLoop() {
     if (pixiApp && playerViewState && galaxyState) {
-        // Only render stars if playerViewState has changed
-        if (playerViewState !== lastPlayerViewState) {
-            renderStars(playerViewState, pixiApp, galaxyState);
-            lastPlayerViewState = playerViewState;
-        }
-        // Render fleets every frame for animation
-        renderFleets(galaxyState, playerViewState, pixiApp);
+        renderPlayerViewState(galaxyState, playerViewState, pixiApp, galaxyUnits);
     }
     requestAnimationFrame(renderLoop); // 🟢 Calls itself repeatedly, 60fps
 }
@@ -960,188 +818,4 @@ function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
             tooltipEl.style.whiteSpace = "pre-line";
             tooltipEl.style.display = "block";
             tooltipEl.style.opacity = "1";
-}
-
-function showInfoPanel(htmlContent: string) {
-    console.log("showInfoPanel called");
-    infoPanelEl.innerHTML = htmlContent;
-    infoPanelEl.style.display = "block";
-    console.log("Info panel display style:", infoPanelEl.style.display);
-}
-
-function getStarInfoHTML(star: StarState): string {
-    const starName = star.name !== "???" ? star.name : "Unknown Star";
-    const ownerName = star.owner !== "???" ? star.owner : "Unknown Owner";
-    
-    let propertiesHTML = "";
-    
-    // Ships property
-    if (star.shipCount !== -1) {
-        propertiesHTML += `
-            <div class="info-panel-cell">
-                <div class="info-panel-graphic" style="background: #4CAF50;"></div>
-                <div class="info-panel-property-content">
-                    <div class="info-panel-property-name">Ships</div>
-                    <div class="info-panel-property-value">${star.shipCount}</div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Wealth property
-    if (star.wealthProduction !== -1) {
-        propertiesHTML += `
-            <div class="info-panel-cell">
-                <div class="info-panel-graphic" style="background: #FFC107;"></div>
-                <div class="info-panel-property-content">
-                    <div class="info-panel-property-name">Wealth</div>
-                    <div class="info-panel-property-value">${star.wealthProduction}</div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Factories property
-    if (star.factoryCount !== -1) {
-        propertiesHTML += `
-            <div class="info-panel-cell">
-                <div class="info-panel-graphic" style="background: #2196F3;"></div>
-                <div class="info-panel-property-content">
-                    <div class="info-panel-property-name">Factories</div>
-                    <div class="info-panel-property-value">${star.factoryCount}</div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Empty cell to complete 2x2 grid
-    propertiesHTML += `<div class="info-panel-cell"></div>`;
-    
-    return `
-        <div class="info-panel-title">${starName}</div>
-        <div class="info-panel-subtitle">${ownerName}</div>
-        <div class="info-panel-grid">
-            ${propertiesHTML}
-        </div>
-        <style>
-            .info-panel-title {
-                font-size: 24px;
-                font-weight: bold;
-                text-align: center;
-                margin-bottom: 8px;
-            }
-            .info-panel-subtitle {
-                font-size: 12px;
-                text-align: center;
-                margin-bottom: 20px;
-                opacity: 0.8;
-            }
-            .info-panel-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
-            }
-            .info-panel-cell {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            .info-panel-graphic {
-                width: 40px;
-                height: 40px;
-                flex-shrink: 0;
-            }
-            .info-panel-property-content {
-                display: flex;
-                flex-direction: column;
-            }
-            .info-panel-property-name {
-                font-size: 10px;
-                opacity: 0.7;
-                margin-bottom: 2px;
-            }
-            .info-panel-property-value {
-                font-size: 18px;
-                font-weight: 500;
-            }
-        </style>
-    `;
-}
-
-function getFleetInfoHTML(fleet: FleetState, sourceStar: StarState, destinationStar: StarState): string {
-    const title = `Convoy from ${sourceStar.name} to ${destinationStar.name}`;
-    
-    return `
-        <div class="info-panel-title">${title}</div>
-        <div class="info-panel-subtitle">${fleet.owner}</div>
-        <div class="info-panel-fleet-content">
-            <div class="info-panel-property-name">Ships</div>
-            <div class="info-panel-property-value-large">${fleet.ships}</div>
-        </div>
-        <style>
-            .info-panel-title {
-                font-size: 20px;
-                font-weight: bold;
-                text-align: center;
-                margin-bottom: 8px;
-            }
-            .info-panel-subtitle {
-                font-size: 12px;
-                text-align: center;
-                margin-bottom: 40px;
-                opacity: 0.8;
-            }
-            .info-panel-fleet-content {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                margin-top: 40px;
-            }
-            .info-panel-property-name {
-                font-size: 12px;
-                opacity: 0.7;
-                margin-bottom: 8px;
-            }
-            .info-panel-property-value-large {
-                font-size: 48px;
-                font-weight: bold;
-            }
-        </style>
-    `;
-}
-
-// ===== CLICK DETECTION HELPER =====
-function findStarAtPosition(worldX: number, worldY: number, viewState: PlayerViewState): StarState | null {
-    const hitThreshold = 3; // Same as sprite hit area radius
-    for (const star of viewState.starList) {
-        const dx = Math.abs(star.x - worldX);
-        const dy = Math.abs(star.y - worldY);
-        if (dx <= hitThreshold && dy <= hitThreshold) {
-            return star;
-        }
-    }
-    return null;
-}
-
-function findFleetAtPosition(worldX: number, worldY: number, galaxyState: GalaxyState, viewState: PlayerViewState): { fleet: FleetState, sourceStar: StarState, destinationStar: StarState } | null {
-    const hitThreshold = 3; // Same as sprite hit area radius
-    for (const fleet of viewState.fleetList) {
-        const sourceStar = viewState.starList.find(s => s.id === fleet.sourceStarId);
-        const destinationStar = viewState.starList.find(s => s.id === fleet.destinationStarId);
-        if (!sourceStar || !destinationStar) continue;
-
-        const percentDone = (galaxyState.clockTime - fleet.startTime) / (fleet.endTime - fleet.startTime);
-        const clampedPercent = Math.max(0, Math.min(1, percentDone));
-
-        const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
-        const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
-
-        const dx = Math.abs(fleetX - worldX);
-        const dy = Math.abs(fleetY - worldY);
-        if (dx <= hitThreshold && dy <= hitThreshold) {
-            return { fleet, sourceStar, destinationStar };
-        }
-    }
-    return null;
 }
