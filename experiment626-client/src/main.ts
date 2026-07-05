@@ -730,8 +730,8 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         }
 
         const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
-        sprite.width = 2; // fixed size in galaxy units
-        sprite.height = 2;
+        sprite.width = 5; // fixed size in galaxy units
+        sprite.height = 5;
         sprite.anchor.set(0.5);
         sprite.x = star.x;
         sprite.y = star.y;
