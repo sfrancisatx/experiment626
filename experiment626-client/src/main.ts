@@ -723,11 +723,11 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
-        if (star.owner === empireName) {
-            const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
-            stage.addChild(greenCircle);
-        }
+        // if (star.owner === empireName) {
+        //     const greenCircle = new PIXI.Graphics();
+        //     greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
+        //     stage.addChild(greenCircle);
+        // }
 
         const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
         sprite.width = 5; // fixed size in galaxy units
