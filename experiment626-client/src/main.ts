@@ -637,6 +637,23 @@ function setupCamera(app: PIXIAppPlus) {
 
     let dragging = false;
     let lastX = 0, lastY = 0;
+    
+    // ===== CLICK EVENT CATCHER =====
+    let worldX = 0;
+    let worldY = 0;
+    app.view.addEventListener("click", (e) => {
+        const rect = app.view.getBoundingClientRect();
+        const canvasX = e.clientX - rect.left;
+        const canvasY = e.clientY - rect.top;
+        worldX = (canvasX - app.stage.position.x) / app.stage.scale.x;
+        worldY = (canvasY - app.stage.position.y) / app.stage.scale.y;
+        console.log("Click position - posX:", worldX, "posY:", worldY);
+        if (hoveredStar) {
+            console.log("Hovered star:", hoveredStar.star.name);
+        }
+
+    });
+    
     app.view.addEventListener("mousedown", (e) => {
         dragging = true;
         lastX = e.clientX;
@@ -703,14 +720,10 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     stage.addChild(tooltipLayer);
     stage.addChild(tooltip);
 
-    console.log("empireId:", empireId);
-    console.log("First few stars and owners:", viewState.starList.slice(0, 3).map(s => ({ id: s.id, owner: s.owner })));
-
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
         if (star.owner === empireName) {
-            console.log("Drawing green circle for star:", star.id, "at", star.x, star.y, "empireName:", empireName);
             const greenCircle = new PIXI.Graphics();
             greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.3 });
             stage.addChild(greenCircle);
