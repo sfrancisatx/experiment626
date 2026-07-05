@@ -723,11 +723,11 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
     // Place stars at galaxy coordinates directly
     viewState.starList.forEach(star => {
         // Add green circle for owned stars
-        // if (star.owner === empireName) {
-        //     const greenCircle = new PIXI.Graphics();
-        //     greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
-        //     stage.addChild(greenCircle);
-        // }
+        if (star.owner === empireName) {
+            const greenCircle = new PIXI.Graphics();
+            greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
+            stage.addChild(greenCircle);
+        }
 
         const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
         sprite.width = 5; // fixed size in galaxy units
@@ -736,13 +736,17 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         sprite.x = star.x;
         sprite.y = star.y;
 
-        sprite.interactive = true;
-        sprite.cursor = "pointer";
-        sprite.hitArea = new PIXI.Circle(star.x, star.y, 7);
+        // sprite.interactive = true;
+        // sprite.cursor = "pointer";
+        const hitCircle = new PIXI.Graphics();
+        hitCircle.circle(star.x, star.y, 7).fill({ color: 0x000000, alpha: 0 });
+        hitCircle.interactive = true;
+        hitCircle.cursor = "pointer";
+        
 
         sprite.starData = star;
 
-        sprite.on("pointerover", () => {
+        hitCircle.on("pointerover", () => {
             if (hoverTimer) clearTimeout(hoverTimer);
             hoveredStar = {star: star, sprite: sprite};
             hoverTimer = setTimeout(() => {
@@ -750,13 +754,14 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
             }, 300);
         });
 
-        sprite.on("pointerout", () => {
+        hitCircle.on("pointerout", () => {
             if (hoverTimer) clearTimeout(hoverTimer);
             tooltipEl.style.opacity = "0";
             hoveredStar = null;
         });
 
         stage.addChild(sprite);
+        stage.addChild(hitCircle);
     });
 
     // Draw Fleets with smooth interpolation
