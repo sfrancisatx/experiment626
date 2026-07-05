@@ -739,6 +739,9 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         sprite.interactive = true;
         sprite.cursor = "pointer";
         sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 7);
+        const hitAreaBorder = new PIXI.Graphics()
+        hitAreaBorder.circle(sprite.x, sprite.y, 7).stroke({ color: 0xFFFFFF, width: 1 });
+        stage.addChild(hitAreaBorder);
 
         sprite.starData = star;
 
