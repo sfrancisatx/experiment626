@@ -725,7 +725,7 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
         // Add green circle for owned stars
         if (star.owner === empireName) {
             const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 10).fill({ color: 0x00FF00, alpha: 0.3 });
+            greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
             stage.addChild(greenCircle);
         }
 
@@ -738,12 +738,13 @@ function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewSt
 
         sprite.interactive = true;
         sprite.cursor = "pointer";
-        sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 3);
+        sprite.hitArea = new PIXI.Circle(sprite.x, sprite.y, 7);
 
         sprite.starData = star;
 
         sprite.on("pointerover", () => {
             if (hoverTimer) clearTimeout(hoverTimer);
+            hoveredStar = {star: star, sprite: sprite};
             hoverTimer = setTimeout(() => {
                 displayStarTooltip(star, sprite);
             }, 300);
@@ -804,7 +805,7 @@ function renderLoop() {
 }
 function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
     let displayText: string = "";
-            hoveredStar = {star: star, sprite: sprite};
+    hoveredStar = {star: star, sprite: sprite};
             if (star.name !== "???") {
                 displayText += `${star.name}\n`;
             }
