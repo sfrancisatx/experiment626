@@ -592,6 +592,7 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     app.stage.addChild(fleetLayer);
     app.stage.addChild(tooltipLayer);
 
+    tooltipLayer.eventMode = "none";
     app.stage.sortableChildren = true;
 
     app.tooltip = tooltip;
