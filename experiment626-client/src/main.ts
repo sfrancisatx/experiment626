@@ -152,6 +152,15 @@ let galaxyState: GalaxyState | null = null;
 let pixiApp: PIXIAppPlus | null = null;
 let galaxyUnits = 1;
 
+// ===== SCENE GRAPH REGISTRIES =====
+type StarEntry = {
+    sprite: PIXI.Sprite & { starData: StarState };
+    hitCircle: PIXI.Graphics;
+    greenCircle: PIXI.Graphics | null;
+};
+const starMap = new Map<string, StarEntry>();
+const fleetMap = new Map<string, PIXI.Sprite>();
+
 // ===== GAME INITIALIZATION PLAYERVIEWSTATE COUNTER =====
 let playerViewStateCount = 0;
 
@@ -170,7 +179,7 @@ const galaxySize = new Map<string, number>([
     ["large", 15000]
 ]);
 
-type PIXIAppPlus = PIXI.Application & { tooltipLayer: PIXI.Container, tooltip: PIXI.Text };
+type PIXIAppPlus = PIXI.Application & { tooltipLayer: PIXI.Container, tooltip: PIXI.Text, starLayer: PIXI.Container, fleetLayer: PIXI.Container };
 
 // ===== UI STATE MANAGEMENT =====
 function showStartupUI() {
@@ -326,6 +335,10 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
         
                 pixiApp = await createPixiApp(pixiRoot);
                 setupCamera(pixiApp);
+
+                if (playerViewState) {
+                    syncStarLayer(playerViewState);
+                }
         
                 // 🟢 Start the continuous render loop now that PIXI is ready
                 renderLoop();
@@ -344,6 +357,9 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             }
             if (type === "playerViewState") {
                 playerViewState = message;
+                if (pixiApp && playerViewState) {
+                    syncStarLayer(playerViewState);
+                }
                 //console.log("Player view state received:", message);
                 
                 // Check if both starList and fleetList are empty (uninitialized game)
@@ -395,6 +411,7 @@ if (!window.location.hash || window.location.hash === "#lobby" || window.locatio
             playerViewState = null;
             hideStartButton();
             hideWaitingMessage();
+            clearSceneGraph();
         });
 
         // Check if game is already initialized (for rejoining) - REMOVED, handled in message handler now
@@ -559,6 +576,8 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     });
     container.appendChild(app.canvas);
 
+    const starLayer = new PIXI.Container();
+    const fleetLayer = new PIXI.Container();
     const tooltipLayer = new PIXI.Container();
     const tooltip = new PIXI.Text("", {
         fontSize: 8,
@@ -569,12 +588,16 @@ async function createPixiApp(container: HTMLElement): Promise<PIXIAppPlus> {
     tooltip.visible = false;
     tooltip.zIndex = 1000;
     tooltip.anchor = new PIXI.Point(0, 0);
+    app.stage.addChild(starLayer);
+    app.stage.addChild(fleetLayer);
     app.stage.addChild(tooltipLayer);
 
     app.stage.sortableChildren = true;
 
     app.tooltip = tooltip;
     app.tooltipLayer = tooltipLayer;
+    app.starLayer = starLayer;
+    app.fleetLayer = fleetLayer;
 
     return app;
 }
@@ -711,79 +734,147 @@ function setupCamera(app: PIXIAppPlus) {
 }
 
 
-function renderPlayerViewState(galaxyState: GalaxyState, viewState: PlayerViewState, app: PIXIAppPlus | null, galaxySize: number) {
-    if (!app) return;
-    const stage = app.stage;
-    const tooltipLayer = app.tooltipLayer;
-    const tooltip = app.tooltip;
-    stage.removeChildren();
-    stage.addChild(tooltipLayer);
-    stage.addChild(tooltip);
+function syncStarLayer(viewState: PlayerViewState) {
+    if (!pixiApp) return;
+    const starLayer = pixiApp.starLayer;
+    const nextIds = new Set(viewState.starList.map(star => star.id));
 
-    // Place stars at galaxy coordinates directly
-    viewState.starList.forEach(star => {
-        // Add green circle for owned stars
-        if (star.owner === empireName) {
-            const greenCircle = new PIXI.Graphics();
-            greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
-            stage.addChild(greenCircle);
+    // Remove stars that are no longer visible
+    for (const [id, entry] of starMap) {
+        if (!nextIds.has(id)) {
+            entry.sprite.destroy({ children: true });
+            entry.hitCircle.destroy({ children: true });
+            if (entry.greenCircle) {
+                entry.greenCircle.destroy({ children: true });
+            }
+            if (hoveredStar && hoveredStar.star.id === id) {
+                hoveredStar = null;
+                if (hoverTimer) clearTimeout(hoverTimer);
+                tooltipEl.style.opacity = "0";
+            }
+            starMap.delete(id);
         }
+    }
 
-        const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
-        sprite.width = 5; // fixed size in galaxy units
-        sprite.height = 5;
-        sprite.anchor.set(0.5);
-        sprite.x = star.x;
-        sprite.y = star.y;
+    // Add new stars or patch owner indicator on existing ones
+    for (const star of viewState.starList) {
+        let entry = starMap.get(star.id);
+        const isOwned = star.owner === empireName;
+        if (!entry) {
+            const greenCircle = isOwned ? new PIXI.Graphics() : null;
+            if (greenCircle) {
+                greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
+                starLayer.addChild(greenCircle);
+            }
 
-        // sprite.interactive = true;
-        // sprite.cursor = "pointer";
-        const hitCircle = new PIXI.Graphics();
-        hitCircle.circle(star.x, star.y, 7).fill({ color: 0x000000, alpha: 0 });
-        hitCircle.interactive = true;
-        hitCircle.cursor = "pointer";
-        
+            const sprite = PIXI.Sprite.from('assets/star.png') as PIXI.Sprite & { starData: StarState };
+            sprite.width = 5;
+            sprite.height = 5;
+            sprite.anchor.set(0.5);
+            sprite.x = star.x;
+            sprite.y = star.y;
+            sprite.starData = star;
 
-        sprite.starData = star;
+            const hitCircle = new PIXI.Graphics();
+            hitCircle.circle(star.x, star.y, 7).fill({ color: 0x000000, alpha: 0 });
+            hitCircle.interactive = true;
+            hitCircle.cursor = "pointer";
 
-        hitCircle.on("pointerover", () => {
-            if (hoverTimer) clearTimeout(hoverTimer);
-            hoveredStar = {star: star, sprite: sprite};
-            hoverTimer = setTimeout(() => {
-                displayStarTooltip(star, sprite);
-            }, 300);
-        });
+            hitCircle.on("pointerover", () => {
+                if (hoverTimer) clearTimeout(hoverTimer);
+                hoveredStar = { star: sprite.starData, sprite };
+                hoverTimer = setTimeout(() => {
+                    displayStarTooltip(sprite.starData, sprite);
+                }, 300);
+            });
 
-        hitCircle.on("pointerout", () => {
-            if (hoverTimer) clearTimeout(hoverTimer);
-            tooltipEl.style.opacity = "0";
-            hoveredStar = null;
-        });
+            hitCircle.on("pointerout", () => {
+                if (hoverTimer) clearTimeout(hoverTimer);
+                tooltipEl.style.opacity = "0";
+                hoveredStar = null;
+            });
 
-        stage.addChild(sprite);
-        stage.addChild(hitCircle);
-    });
+            starLayer.addChild(sprite);
+            starLayer.addChild(hitCircle);
+            entry = { sprite, hitCircle, greenCircle };
+            starMap.set(star.id, entry);
+        } else {
+            entry.sprite.starData = star;
+            if (isOwned && !entry.greenCircle) {
+                const greenCircle = new PIXI.Graphics();
+                greenCircle.circle(star.x, star.y, 7).fill({ color: 0x00FF00, alpha: 0.3 });
+                starLayer.addChild(greenCircle);
+                entry.greenCircle = greenCircle;
+            } else if (!isOwned && entry.greenCircle) {
+                entry.greenCircle.destroy({ children: true });
+                entry.greenCircle = null;
+            }
+        }
+    }
+}
 
-    // Draw Fleets with smooth interpolation
-    viewState.fleetList.forEach(fleet => {
+function syncFleetPositions() {
+    if (!pixiApp || !playerViewState || !galaxyState) return;
+    const fleetLayer = pixiApp.fleetLayer;
+    const viewState = playerViewState;
+    const nextIds = new Set(viewState.fleetList.map(fleet => fleet.id));
+
+    // Remove departed fleets
+    for (const [id, sprite] of fleetMap) {
+        if (!nextIds.has(id)) {
+            sprite.destroy({ children: true });
+            fleetMap.delete(id);
+        }
+    }
+
+    // Add or update fleet positions
+    for (const fleet of viewState.fleetList) {
         const sourceStar = viewState.starList.find(s => s.id === fleet.sourceStarId);
         const destinationStar = viewState.starList.find(s => s.id === fleet.destinationStarId);
-        if (!sourceStar || !destinationStar) return;
+        if (!sourceStar || !destinationStar) {
+            const existing = fleetMap.get(fleet.id);
+            if (existing) {
+                existing.destroy({ children: true });
+                fleetMap.delete(fleet.id);
+            }
+            continue;
+        }
 
         const percentDone = (galaxyState.clockTime - fleet.startTime) / (fleet.endTime - fleet.startTime);
         const clampedPercent = Math.max(0, Math.min(1, percentDone));
-
         const fleetX = sourceStar.x + (destinationStar.x - sourceStar.x) * clampedPercent;
         const fleetY = sourceStar.y + (destinationStar.y - sourceStar.y) * clampedPercent;
 
-        const sprite = PIXI.Sprite.from('assets/fleet.png');
-        sprite.width = 2;
-        sprite.height = 2;
-        sprite.anchor.set(0.5);
+        let sprite = fleetMap.get(fleet.id);
+        if (!sprite) {
+            sprite = PIXI.Sprite.from('assets/fleet.png');
+            sprite.width = 2;
+            sprite.height = 2;
+            sprite.anchor.set(0.5);
+            fleetLayer.addChild(sprite);
+            fleetMap.set(fleet.id, sprite);
+        }
         sprite.x = fleetX;
         sprite.y = fleetY;
-        stage.addChild(sprite);
-    });
+    }
+}
+
+function clearSceneGraph() {
+    for (const entry of starMap.values()) {
+        entry.sprite.destroy({ children: true });
+        entry.hitCircle.destroy({ children: true });
+        if (entry.greenCircle) {
+            entry.greenCircle.destroy({ children: true });
+        }
+    }
+    starMap.clear();
+    for (const sprite of fleetMap.values()) {
+        sprite.destroy({ children: true });
+    }
+    fleetMap.clear();
+    hoveredStar = null;
+    if (hoverTimer) clearTimeout(hoverTimer);
+    tooltipEl.style.opacity = "0";
 }
 
 
@@ -803,9 +894,7 @@ function updateDebugUI(panel1: string, panel2: string, panel3: string) {
     }
 }
 function renderLoop() {
-    if (pixiApp && playerViewState && galaxyState) {
-        renderPlayerViewState(galaxyState, playerViewState, pixiApp, galaxyUnits);
-    }
+    syncFleetPositions();
     requestAnimationFrame(renderLoop); // 🟢 Calls itself repeatedly, 60fps
 }
 function displayStarTooltip(star: StarState, sprite: PIXI.Sprite) {
